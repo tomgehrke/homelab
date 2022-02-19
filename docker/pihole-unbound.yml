@@ -1,0 +1,50 @@
+version: '2'
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    hostname: pi-hole
+    mac_address: d0:ca:ab:cd:ef:01
+#     cap_add: # Uncomment if you want to use Pi-Hole for DHCP
+#       - NET_ADMIN
+    ports:
+      - 443/tcp
+      - 53/tcp
+      - 53/udp
+#       - 67/udp # Uncomment if you want to use Pi-Hole for DHCP
+      - 80/tcp
+      - 22/tcp
+    environment:
+      - ServerIP=192.168.86.152
+      - WEBPASSWORD=abcd1234
+    volumes:
+      - /var/lib/docker/volumes/pihole-unbound/pihole-dnsmasq:/etc/dnsmasq.d
+      - /var/lib/docker/volumes/pihole-unbound/pihole-etc:/etc/pihole
+    networks:
+      home:
+        ipv4_address: 192.168.86.152
+    restart: always
+  unbound:
+    container_name: unbound
+    image: mvance/unbound:latest
+    hostname: syn-unbound
+    mac_address: d0:ca:ab:cd:ef:02
+    ports:
+      - 53/tcp
+      - 53/udp
+    networks:
+      home:
+        ipv4_address: 192.168.86.153
+    restart: always
+
+networks:
+  home:
+    driver: macvlan
+    driver_opts:
+      parent: ens18
+    ipam:
+      config:
+        - subnet: 192.168.86.0/24
+          gateway: 192.168.86.1
+          ip_range: 192.168.86.152/30 # 192.168.86.152 and 192.168.86.153
