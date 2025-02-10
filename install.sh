@@ -8,6 +8,18 @@ symlink() {
 	ln -nsf "$@"
 }
 
+checkPrerequisites() {
+        if ! command -v "jq" && command -v "apt" >/dev/null; then
+                sudo apt install jq -y -q
+        elif ! command -v "jq" && command -v "dnf" >/dev/null; then
+                sudo dnf install jq -y -q
+        fi
+}
+
+echo "========================================================================="
+echo "Checking prerequisites..."
+checkPrerequisites
+
 echo "========================================================================="
 echo "Linking scripts..."
 symlink "$PWD/scripts" ~/scripts
