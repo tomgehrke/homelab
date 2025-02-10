@@ -38,10 +38,14 @@ getPackageManager() {
 
 initializeHomelab() {
 
+        # Check for existence of config directory
         if [[ ! -d "$(dirname $CONFIG_FILE)" ]]; then
                 mkdir -p "$(dirname $CONFIG_FILE)"
         fi
+
+        # Check for existence of the config file
         if [[ ! -f "$CONFIG_FILE" ]]; then
+                # Add default set of applications to new config
                 jq -n '{
                         allApps: ["ncdu","eza"],
                         aptApps: ["screenfetch"],
@@ -53,6 +57,7 @@ initializeHomelab() {
 
 installApps() {
         local packageManager=$(getPackageManager)
+        local requiredApps=()
 
         if [[ -z $packageManager ]]; then
                 echo "No supported package managers found. Nothing will be installed."
