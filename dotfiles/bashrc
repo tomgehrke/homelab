@@ -1,0 +1,159 @@
+# Loads all Homelab support
+
+# Do nothing if not running interactively
+[[ -n $PS1 ]] || return
+
+cdhl() {
+        # Change to homelab directory, wherever it is
+        if [[ -d ~/homelab ]]; then
+                cd ~/homelab
+        elif [[ -d /mnt/homelab ]]; then
+                cd /mnt/homelab
+        fi
+}
+
+cdhp() {
+        # Change to homelab directory
+        if [[ -d ~/homelab_priv ]]; then
+                cd ~/homelab_priv
+        fi
+}
+
+getPackageManager() {
+        # Determine Package Manager
+        local packageManagers=(
+                apt
+                dnf
+        )
+
+        for packageManager in "${packageManagers[@]}"; do
+                if command -v $packageManager &>/dev/null; then
+                        echo $packageManager
+                        return
+                fi
+        done
+}
+
+updateHomelab() {
+        local packageManager=$(getPackageManager)
+        if [[ -z $packageManager ]]; then
+                echo "No supported package managers found. Nothing will be installed."
+                return 1
+        fi
+
+        if [[ $packageManager == "apt" ]]; then
+                installedApps="$(apt list --installed 2>/dev/null)"
+        elif [[ $packageManager == "dnf" ]]; then
+                installedApps="$(dnf list installed 2>/dev/null)"
+        fi
+
+        requiredApps=(
+                inxi
+                ncdu
+                eza
+                )
+
+        local repositoryUpdated=''
+        for app in "${requiredApps[@]}"; do
+
+                # Does app show up in list of installed apps
+                if echo "$installedApps" | grep "^$app[/\.]" >/dev/null 2>&1; then
+                        continue
+                fi
+
+                # Install missing packages
+                case $packageManager in
+                apt)
+                        if [[ $repositoryUpdated != 'y' ]]; then
+                                echo "App installation required. Updating repositories..."
+                                sudo apt update -q 2>&1 | grep -v "WARNING: apt does not have a stable CLI interface" >/dev/null
+                                repositoryUpdated='y'
+                        fi
+                        echo "Installing $app..."
+                        sudo apt install -y $app 2>&1 | grep -v "WARNING: apt does not have a stable CLI interface" >/dev/null
+                        ;;
+                dnf)
+                        if [[ $repositoryUpdated != 'y' ]]; then
+                                echo "App installation required. Updating repositories..."
+                                sudo dnf update -q -y
+                                sudo dnf install epel-release -q -y
+                                repositoryUpdated='y'
+                        fi
+                        echo "Installing $app..."
+                        sudo dnf install -y $app 2>&1
+                        ;;
+                *)
+                        echo "Unknown package manager: $packageManager"
+                        ;;
+                esac
+        done
+
+}
+
+updateHomelab
+
+# set PATH so it includes homelab scripts
+if [[ -d "$HOME/scripts" ]] ; then
+        PATH="$HOME/scripts:$PATH"
+fi
+
+# Make sure there is a nano backup directory
+if [[ ! -d "$HOME/.nanobackup" ]]; then
+        mkdir "$HOME/.nanobackup"
+fi
+
+# Environment
+export EDITOR="nano"
+export GREP_COLOR='1;36'
+export HISTCONTROL='ignoredups'
+export HISTSIZE=5000
+export HISTFILESIZE=5000
+export PAGER='less'
+export TZ='America/Chicago'
+export GIT_DEFAULT_BRANCH="main"
+
+# Shell options
+shopt -s cdspell
+shopt -s checkwinsize
+shopt -s autocd   2>/dev/null || true
+shopt -s dirspell 2>/dev/null || true
+
+# Aliases
+alias ..='echo "cd .."; cd ..'
+alias ...='echo "cd ../.."; cd ../..'
+alias ....='echo "cd ../../.."; cd ../../..'
+alias whereami='curl -sS https://ipinfo.io/city'
+alias l='ls'
+alias ll='ls -hAlF'
+alias du='ncdu -x -e --color dark'
+alias flushdns='resolvectl flush-caches'
+alias update-all='sudo apt update && sudo apt upgrade -y'
+grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
+
+if command -v eza >/dev/null 2>&1; then
+        alias ls='eza --group-directories-first --icons'
+else
+        alias ls='ls --group-directories-first --color=auto'
+        eval $(dircolors -b)
+fi
+
+# Show system info
+command -v inxi >/dev/null && inxi
+
+# Check filesystem usage
+if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
+        echo
+        $HOME/scripts/check-freespace.sh 75
+fi
+
+# Make the prompt fancy
+source ~/.git-prompt
+GIT_PS1_SHOWDIRTYSTATE=yes
+GIT_PS1_SHOWUNTRACKEDFILES=yes
+GIT_PS1_SHOWUPSTREAM=auto
+GIT_PS1_SHOWCONFLICTSTATE=yes
+PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
+PS1='\n\[\e[33m\]╭\[\e[0;43m\] \[\e[30m\]\u@\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\] \[\e[97;48;5;232m\]\w\[\e[0m\] \n\[\e[33m\]╰\[\e[0m\] \d \T > '
+
+# Report location
+echo Welcome to $(whereami)!

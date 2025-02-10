@@ -1,0 +1,9 @@
+[user]
+	name = Tom Gehrke
+	email = tomgehrke@gmail.com
+[color]
+	ui = auto
+[push]
+	default = matching
+[pull]
+	rebase = false
