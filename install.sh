@@ -9,9 +9,9 @@ symlink() {
 }
 
 checkPrerequisites() {
-        if ! command -v "jq" && command -v "apt" >/dev/null; then
+        if ! command -v "jq" >/dev/null && command -v "apt" >/dev/null; then
                 sudo apt install jq -y -q
-        elif ! command -v "jq" && command -v "dnf" >/dev/null; then
+        elif ! command -v "jq" >/dev/null && command -v "dnf" >/dev/null; then
                 sudo dnf install jq -y -q
         fi
 }
