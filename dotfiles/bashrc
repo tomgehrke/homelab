@@ -3,6 +3,8 @@
 # Do nothing if not running interactively
 [[ -n $PS1 ]] || return
 
+CONFIG_FILE="$HOME/.config/homelab/homelab.conf"
+
 cdhl() {
         # Change to homelab directory, wherever it is
         if [[ -d ~/homelab ]]; then
@@ -34,8 +36,24 @@ getPackageManager() {
         done
 }
 
-updateHomelab() {
+initializeHomelab() {
+
+        if [[ ! -d "$(dirname $CONFIG_FILE)" ]]; then
+                mkdir -p "$(dirname $CONFIG_FILE)"
+        fi
+        if [[ ! -f "$CONFIG_FILE" ]]; then
+                jq -n '{
+                        allApps: ["ncdu","eza"],
+                        aptApps: ["screenfetch"],
+                        dnfApps: ["fastfetch"]
+                }' > "$CONFIG_FILE"
+                echo "Homelab config file created: $CONFIG_FILE"
+        fi
+}
+
+installApps() {
         local packageManager=$(getPackageManager)
+
         if [[ -z $packageManager ]]; then
                 echo "No supported package managers found. Nothing will be installed."
                 return 1
@@ -43,15 +61,11 @@ updateHomelab() {
 
         if [[ $packageManager == "apt" ]]; then
                 installedApps="$(apt list --installed 2>/dev/null)"
+                mapfile -t requiredApps < <(jq -r '.allApps[] , .aptApps[]' "$CONFIG_FILE")
         elif [[ $packageManager == "dnf" ]]; then
                 installedApps="$(dnf list installed 2>/dev/null)"
+                mapfile -t requiredApps < <(jq -r '.allApps[] , .dnfApps[]' "$CONFIG_FILE")
         fi
-
-        requiredApps=(
-                inxi
-                ncdu
-                eza
-                )
 
         local repositoryUpdated=''
         for app in "${requiredApps[@]}"; do
@@ -90,7 +104,8 @@ updateHomelab() {
 
 }
 
-updateHomelab
+initializeHomelab
+installApps
 
 # set PATH so it includes homelab scripts
 if [[ -d "$HOME/scripts" ]] ; then
@@ -138,7 +153,8 @@ else
 fi
 
 # Show system info
-command -v inxi >/dev/null && inxi
+command -v screenfetch >/dev/null && screenfetch
+command -v fastfetch >/dev/null && fastfetch
 
 # Check filesystem usage
 if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
