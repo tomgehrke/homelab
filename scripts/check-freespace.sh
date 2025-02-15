@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 thresholdPercentage=$1
 highUsage=0
