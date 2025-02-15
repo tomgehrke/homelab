@@ -3,6 +3,8 @@
 # Tom's Homelab Support Installer
 # ===============================
 
+[[ $EUID != 0 ]] && runElevated=sudo
+
 symlink() {
 	printf '%55s -> %s\n' "${1/#$HOME/\~}" "${2/#$HOME/\~}"
 	ln -nsf "$@"
@@ -10,9 +12,9 @@ symlink() {
 
 checkPrerequisites() {
         if ! command -v "jq" >/dev/null && command -v "apt" >/dev/null; then
-                sudo apt install jq -y -q
+                $runElevated apt install jq -y -q
         elif ! command -v "jq" >/dev/null && command -v "dnf" >/dev/null; then
-                sudo dnf install jq -y -q
+                $runElevated dnf install jq -y -q
         fi
 }
 
