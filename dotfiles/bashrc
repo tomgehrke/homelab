@@ -7,7 +7,7 @@
 CONFIG_FILE="$HOME/.config/homelab/homelab.conf"
 
 runElevated() {
-    [[ $EUID != 0 ]] && runElevated "$@" || "$@"
+    [[ $EUID != 0 ]] && sudo "$@" || "$@"
 }
 
 cdhl() {
