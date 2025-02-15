@@ -145,10 +145,13 @@ alias ....='echo "cd ../../.."; cd ../../..'
 alias whereami='curl -sS https://ipinfo.io/city'
 alias l='ls'
 alias ll='ls -hAlF'
-alias du='ncdu -x -e --color dark'
 alias flushdns='resolvectl flush-caches'
 alias update-all='sudo apt update && sudo apt upgrade -y'
 grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
+
+if command -v ncdu >/dev/null 2>&1; then
+        alias du='ncdu -x -e --color dark'
+fi
 
 if command -v eza >/dev/null 2>&1; then
         alias ls='eza --group-directories-first --icons'
