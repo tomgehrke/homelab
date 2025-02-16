@@ -43,12 +43,6 @@ if [[ $EUID != 0 && -f ~/scripts/add-sudoer.sh ]]; then
         ~/scripts/add-sudoer.sh
 fi
 
-# Install homelab CA cert
-echo Installing Homelab certificate authority...
-if [[ -f ~/homelab_priv/certs/install-homelab_certificate_authority.sh ]]; then
-    ~/homelab_priv/certs/install-homelab_certificate_authority.sh
-fi
-
 # Link dotfiles
 echo Linking dotfiles...
 dotFiles=(
