@@ -35,7 +35,7 @@ echo Checking prerequisites...
 checkPrerequisites
 
 echo Linking scripts...
-symlink "$PWD/scripts" ~/scripts
+symlink "$PWD/scripts/bash" ~/scripts
 
 # Add sudoer if this is not root
 if [[ $EUID != 0 && -f ~/scripts/add-sudoer.sh ]]; then
