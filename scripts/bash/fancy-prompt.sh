@@ -14,7 +14,7 @@ GIT_PS1_SHOWCONFLICTSTATE=yes
 getValue() {
     local charValue=$1
     local minValue=$(printf "%d" "'0")
-    local maxValue=$(printf "%d" "'z")
+    local maxValue=$(printf "%d" "'Z")
     local range=$(( maxValue - minValue ))
     local value=$(( (charValue - minValue) * 255 / range ))
 
@@ -23,6 +23,7 @@ getValue() {
 
 # Get the hostname or fallback to another command
 host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
+host="${host^^}"
 
 # R, G, and B values from the hostname
 rValue=$(getValue $(printf "%d" "'${host:0:1}"))
