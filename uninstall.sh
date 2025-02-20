@@ -47,4 +47,12 @@ if [[ -L ~/.homelab_aliases ]]; then
     rm ~/.homelab_aliases
 fi
 
+if [[ -f ~/.config/homelab/homelab.conf ]]; then
+        read -p "Do you want to remove existing configuration? (y/n): " removeConfig
+        removeConfig=${removeConfig,,}
+        if [[ $removeConfig == 'y' ]]; then
+                rm ~/.config/homelab/homelab.conf
+        fi
+fi
+
 echo 'Uninstall complete!'
