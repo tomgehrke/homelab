@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-COLOR_WHITE="\e[38;5;255;255;255m"
-COLOR_BLACK="\e[38;5;0;0;0m"
+COLOR_WHITE="\e[38;5;255m"
+COLOR_BLACK="\e[38;5;0m"
 
 # Git support
 source ~/.git-prompt
@@ -21,6 +21,22 @@ getValue() {
         echo $value
 }
 
+rgb_to_ansi256() {
+    local red=$1 green=$2 blue=$3
+    if ((red == green && green == blue)); then
+        # Convert grayscale
+        if ((red < 8)); then echo 16; return; fi
+        if ((red > 248)); then echo 231; return; fi
+        echo $((232 + (red - 8) / 10))
+    else
+        # Convert RGB cube
+        local ansi_red=$(( (red * 5) / 255 ))
+        local ansi_green=$(( (green * 5) / 255 ))
+        local ansi_blue=$(( (blue * 5) / 255 ))
+        echo $((16 + (ansi_red * 36) + (ansi_green * 6) + ansi_blue))
+    fi
+}
+
 # Get the hostname or fallback to another command
 host="${HOSTNAME:- $(command -v hostname && hostname || echo "$NAME")}"
 host="${host^^}"
@@ -35,8 +51,8 @@ bValue=$(getValue $(printf "%d" "'${host:2:1}"))
 lValue=$(( ((rValue * 299) + (gValue * 587) + (bValue * 114)) / 1000 ))
 
 # Set the background color based on RGB values
-bgCode="\e[48;2;${rValue};${gValue};${bValue}m"
-trimCode="\e[38;2;${rValue};${gValue};${bValue}m"
+bgCode="\e[48;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
+trimCode="\e[38;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
 
 # Set the foreground color based on brightness
 if [[ $lValue -gt 128 ]]; then
