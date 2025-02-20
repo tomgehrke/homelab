@@ -18,19 +18,20 @@ getValue() {
     echo $value
 }
 
+# Function to convert RGB values to ANSI 256-color code
 rgb_to_ansi256() {
-    local red=$1 green=$2 blue=$3
-    if ((red == green && green == blue)); then
+    local r=$1 g=$2 b=$3
+    if ((r == g && g == b)); then
         # Convert grayscale
-        if ((red < 8)); then echo 16; return; fi
-        if ((red > 248)); then echo 231; return; fi
-        echo $((232 + (red - 8) / 10))
+        if ((r < 8)); then echo 16; return; fi
+        if ((r > 248)); then echo 231; return; fi
+        echo $((232 + (r - 8) / 10))
     else
         # Convert RGB cube
-        local ansi_red=$(( (red * 5) / 255 ))
-        local ansi_green=$(( (green * 5) / 255 ))
-        local ansi_blue=$(( (blue * 5) / 255 ))
-        echo $((16 + (ansi_red * 36) + (ansi_green * 6) + ansi_blue))
+        local ansi_r=$(( (r * 5) / 255 ))
+        local ansi_g=$(( (g * 5) / 255 ))
+        local ansi_b=$(( (b * 5) / 255 ))
+        echo $((16 + (ansi_r * 36) + (ansi_g * 6) + ansi_b))
     fi
 }
 
@@ -47,26 +48,19 @@ bValue=$(getValue $(printf "%d" "'${host:2:1}"))
 # Luminosity (brightness) value
 lValue=$(( ((rValue * 299) + (gValue * 587) + (bValue * 114)) / 1000 ))
 
-# Convert RGB to ANSI 256 color
-ansiColor=$(rgb_to_ansi256 $rValue $gValue $bValue)
+# Set the background and trim color based on RGB values
+bgCode="\e[48;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
+trimCode="\e[38;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
+fgCode="\e[1m\e[38;5;195m"  # Use white text for dark backgrounds
 
-# Set colors using `tput`
-bgCode=$(tput setab $ansiColor)
-trimCode=$(tput setaf $ansiColor)
-
-# Set the foreground color based on brightness
-if [[ $lValue -gt 128 ]]; then
-    fgCode=$(tput setaf 0)  # Black text for bright backgrounds
-else
-    fgCode=$(tput setaf 15) # White text for dark backgrounds
-fi
-
-# Reset formatting
-resetColor=$(tput sgr0)
+# If the background is bright, change the foreground to black
+#if [[ $lValue -gt 128 ]]; then
+#    fgCode="\e[38;5;0m"  # Use black text for bright backgrounds
+#fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"${resetColor}${bgCode}${fgCode}"' \u@\H '"${resetColor}"'$(tput setaf 3)$(tput setab 4)${PS1_CMD1}'"${resetColor}"' $(tput setaf 7)$(tput setab 232)\w'"${resetColor}"' \n'"${trimCode}"'╰'"${resetColor}"' \d \T > '
+PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}"' \u@\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\] \[\e[97;48;5;232m\]\w\[\e[0m\] \n'"${trimCode}"'╰ \[\e[0m\] \d \T > '
 
 # Export the modified PS1
 export PS1
