@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-COLOR_WHITE="\e[97m"
-COLOR_BLACK="\e[30m"
+COLOR_WHITE="\e[38;5;255;255;255m"
+COLOR_BLACK="\e[38;5;0;0;0m"
 
 # Git support
 source ~/.git-prompt
@@ -12,13 +12,13 @@ GIT_PS1_SHOWUPSTREAM=auto
 GIT_PS1_SHOWCONFLICTSTATE=yes
 
 getValue() {
-    local charValue=$1
-    local minValue=$(printf "%d" "'A")
-    local maxValue=$(printf "%d" "'Z")
-    local range=$(( maxValue - minValue ))
-    local value=$(( (charValue - minValue) * 255 / range ))
+        local charValue=$1
+        local minValue=$(printf "%d" "'A")
+        local maxValue=$(printf "%d" "'Z")
+        local range=$(( maxValue - minValue ))
+        local value=$(( (charValue - minValue) * 255 / range ))
 
-    echo $value
+        echo $value
 }
 
 # Get the hostname or fallback to another command
@@ -35,14 +35,14 @@ bValue=$(getValue $(printf "%d" "'${host:2:1}"))
 lValue=$(( ((rValue * 299) + (gValue * 587) + (bValue * 114)) / 1000 ))
 
 # Set the background color based on RGB values
-bgCode="\e[48;2;${rValue};${gValue};${bValue}m"
-trimCode="\e[38;2;${rValue};${gValue};${bValue}m"
+bgCode="\e[48;5;${rValue};${gValue};${bValue}m"
+trimCode="\e[38;5;${rValue};${gValue};${bValue}m"
 
 # Set the foreground color based on brightness
 if [[ $lValue -gt 128 ]]; then
-    fgCode="$COLOR_BLACK"  # Use black text for bright backgrounds
+        fgCode="$COLOR_BLACK"  # Use black text for bright backgrounds
 else
-    fgCode="$COLOR_WHITE"  # Use white text for dark backgrounds
+        fgCode="$COLOR_WHITE"  # Use white text for dark backgrounds
 fi
 
 # Construct the prompt with the background and foreground colors
