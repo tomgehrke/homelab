@@ -179,14 +179,7 @@ if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
         $HOME/scripts/check-freespace.sh 75
 fi
 
-# Make the prompt fancy
-source ~/.git-prompt
-GIT_PS1_SHOWDIRTYSTATE=yes
-GIT_PS1_SHOWUNTRACKEDFILES=yes
-GIT_PS1_SHOWUPSTREAM=auto
-GIT_PS1_SHOWCONFLICTSTATE=yes
-PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n\[\e[33m\]╭\[\e[0;43m\] \[\e[30m\]\u@\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\] \[\e[97;48;5;232m\]\w\[\e[0m\] \n\[\e[33m\]╰\[\e[0m\] \d \T > '
+source ~/scripts/fancy-prompt.sh
 
 # Report location
 echo Welcome to $(whereami)!
