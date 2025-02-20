@@ -13,7 +13,7 @@ GIT_PS1_SHOWCONFLICTSTATE=yes
 
 getValue() {
     local charValue=$1
-    local minValue=$(printf "%d" "'0")
+    local minValue=$(printf "%d" "'A")
     local maxValue=$(printf "%d" "'Z")
     local range=$(( maxValue - minValue ))
     local value=$(( (charValue - minValue) * 255 / range ))
@@ -22,8 +22,9 @@ getValue() {
 }
 
 # Get the hostname or fallback to another command
-host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
+host="${HOSTNAME:- $(command -v hostname && hostname || echo "$NAME")}"
 host="${host^^}"
+host="${host//[^A-Z]/}"
 
 # R, G, and B values from the hostname
 rValue=$(getValue $(printf "%d" "'${host:0:1}"))
@@ -46,7 +47,6 @@ fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-# PS1='\n\[\e[33m\]╭\[\e[0m\]'"${bgCode}${fgCode}"' \u@\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\] \[\e[97;48;5;232m\]\w\[\e[0m\] \n\[\e[33m\]╰\[\e[0m\] \d \T > '
 PS1='\n'"${trimCode}"'╭\[\e[0m\]'"${bgCode}${fgCode}"' \u@\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\] \[\e[97;48;5;232m\]\w\[\e[0m\] \n'"${trimCode}"'╰\[\e[0m\] \d \T > '
 
 # Export the modified PS1
