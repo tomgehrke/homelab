@@ -35,8 +35,8 @@ bValue=$(getValue $(printf "%d" "'${host:2:1}"))
 lValue=$(( ((rValue * 299) + (gValue * 587) + (bValue * 114)) / 1000 ))
 
 # Set the background color based on RGB values
-bgCode="\e[48;5;${rValue};${gValue};${bValue}m"
-trimCode="\e[38;5;${rValue};${gValue};${bValue}m"
+bgCode="\e[48;2;${rValue};${gValue};${bValue}m"
+trimCode="\e[38;2;${rValue};${gValue};${bValue}m"
 
 # Set the foreground color based on brightness
 if [[ $lValue -gt 128 ]]; then
