@@ -56,7 +56,7 @@ trimCode="\e[38;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
 fgCode="\e[1m\e[38;5;195m"  # Use white text for dark backgrounds
 
 # If the background is bright, change the foreground to black
-if [[ $lValue -gt 128 ]]; then
+if [[ $lValue -gt 180 ]]; then
     fgCode="\e[38;5;0m"  # Use black text for bright backgrounds
 fi
 
