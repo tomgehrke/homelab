@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-COLOR_WHITE="\e[38;5;255m"
-COLOR_BLACK="\e[38;5;0m"
-
 # Git support
 source ~/.git-prompt
 
@@ -12,13 +9,13 @@ GIT_PS1_SHOWUPSTREAM=auto
 GIT_PS1_SHOWCONFLICTSTATE=yes
 
 getValue() {
-        local charValue=$1
-        local minValue=$(printf "%d" "'A")
-        local maxValue=$(printf "%d" "'Z")
-        local range=$(( maxValue - minValue ))
-        local value=$(( (charValue - minValue) * 255 / range ))
+    local charValue=$1
+    local minValue=$(printf "%d" "'A")
+    local maxValue=$(printf "%d" "'Z")
+    local range=$(( maxValue - minValue ))
+    local value=$(( (charValue - minValue) * 255 / range ))
 
-        echo $value
+    echo $value
 }
 
 rgb_to_ansi256() {
@@ -50,20 +47,26 @@ bValue=$(getValue $(printf "%d" "'${host:2:1}"))
 # Luminosity (brightness) value
 lValue=$(( ((rValue * 299) + (gValue * 587) + (bValue * 114)) / 1000 ))
 
-# Set the background color based on RGB values
-bgCode="\e[48;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
-trimCode="\e[38;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
+# Convert RGB to ANSI 256 color
+ansiColor=$(rgb_to_ansi256 $rValue $gValue $bValue)
+
+# Set colors using `tput`
+bgCode=$(tput setab $ansiColor)
+trimCode=$(tput setaf $ansiColor)
 
 # Set the foreground color based on brightness
 if [[ $lValue -gt 128 ]]; then
-        fgCode="$COLOR_BLACK"  # Use black text for bright backgrounds
+    fgCode=$(tput setaf 0)  # Black text for bright backgrounds
 else
-        fgCode="$COLOR_WHITE"  # Use white text for dark backgrounds
+    fgCode=$(tput setaf 15) # White text for dark backgrounds
 fi
+
+# Reset formatting
+resetColor=$(tput sgr0)
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭\[\e[0m\]'"${bgCode}${fgCode}"' \u@\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\] \[\e[97;48;5;232m\]\w\[\e[0m\] \n'"${trimCode}"'╰\[\e[0m\] \d \T > '
+PS1='\n'"${trimCode}"'╭'"${resetColor}${bgCode}${fgCode}"' \u@\H '"${resetColor}"'$(tput setaf 3)$(tput setab 4)${PS1_CMD1}'"${resetColor}"' $(tput setaf 7)$(tput setab 232)\w'"${resetColor}"' \n'"${trimCode}"'╰'"${resetColor}"' \d \T > '
 
 # Export the modified PS1
 export PS1
