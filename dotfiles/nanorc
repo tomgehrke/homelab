@@ -223,7 +223,7 @@ set errorcolor bold,white,red
 set selectedcolor lightwhite,magenta
 set stripecolor ,yellow
 set scrollercolor cyan
-set numbercolor black,grey
+set numbercolor black,cyan
 set keycolor cyan
 set functioncolor green
 
