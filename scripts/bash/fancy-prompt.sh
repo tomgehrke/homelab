@@ -31,7 +31,9 @@ rgb_to_ansi256() {
         local ansi_r=$(( (r * 5) / 255 ))
         local ansi_g=$(( (g * 5) / 255 ))
         local ansi_b=$(( (b * 5) / 255 ))
-        echo $((16 + (ansi_r * 36) + (ansi_g * 6) + ansi_b))
+        local ansi_value=$((16 + (ansi_r * 36) + (ansi_g * 6) + ansi_b))
+        # Return multiple of 16
+        echo $(( (ansi_value + 8) / 16 * 16 ))
     fi
 }
 
@@ -54,9 +56,9 @@ trimCode="\e[38;5;$(rgb_to_ansi256 $rValue $gValue $bValue)m"
 fgCode="\e[1m\e[38;5;195m"  # Use white text for dark backgrounds
 
 # If the background is bright, change the foreground to black
-#if [[ $lValue -gt 128 ]]; then
-#    fgCode="\e[38;5;0m"  # Use black text for bright backgrounds
-#fi
+if [[ $lValue -gt 128 ]]; then
+    fgCode="\e[38;5;0m"  # Use black text for bright backgrounds
+fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
