@@ -12,18 +12,18 @@ getFlag() {
     local level="$1"
     local caption="$2"
 
-    # Manually map background colors to their closest ANSI foreground equivalents
+    # Manually map background colors to their closest ANSI 256 equivalents
     case "$level" in
-        1) bgColor="41"; triColor="38;5;196"; fgColor="93" ;;  # Red background → Red foreground for triangle
-        2) bgColor="43"; triColor="33"; fgColor="30" ;;  # Orange background → Dark yellow foreground
-        3) bgColor="103"; triColor="93"; fgColor="30" ;; # Bright yellow background → Dark yellow foreground
-        4) bgColor="46"; triColor="36"; fgColor="30" ;;  # Blue-green background → Cyan foreground
-        5) bgColor="104"; triColor="34"; fgColor="30" ;; # Light blue background → Blue foreground
+        1) bgColor="48;5;196"; trimColor="38;5;196"; fgColor="38;5;226" ;;
+        2) bgColor="48;5;202"; trimColor="38;5;202"; fgColor="38;5;16" ;;
+        3) bgColor="48;5;226"; trimColor="38;5;226"; fgColor="38;5;16" ;;
+        4) bgColor="48;5;44";  trimColor="38;5;44"; fgColor="38;5;16" ;;
+        5) bgColor="48;5;33";  trimColor="38;5;33"; fgColor="38;5;16" ;;
         *) echo "Invalid level"; return 1 ;;
     esac
 
     # Print the caption with background color
-    echo -e "\e[${fgColor};${bgColor}m ${caption} \e[0m\e[${triColor}m\e[0m"
+    echo -e "\e[${bgColor};${fgColor}m ${caption} \e[0m\e[48;5;16;${trimColor}m\e[0m"
 }
 
 getValue() {
@@ -84,7 +84,7 @@ fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}"' \u'"${sudoUser}"' on \H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─\[\e[0m\] \d \T '"${flag}"'\[\e[0m\] '
+PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}"' \u'"${sudoUser}"' on \H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]'"${flag}"'\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─┤\[\e[0m\] \d \T \[\e[0m\]'"${trimCode}"'│\[\e[0m\] '
 
 # Export the modified PS1
 export PS1
