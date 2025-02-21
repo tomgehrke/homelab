@@ -22,18 +22,19 @@ getFlag() {
     local level="$1"
     local caption="$2"
 
+    # Manually map background colors to their closest ANSI foreground equivalents
     case "$level" in
-        1) bgColor="41" fgColor="97" ;;  # Red background, bright white text
-        2) bgColor="43" fgColor="30" ;;  # Orange (yellow) background, black text
-        3) bgColor="103" fgColor="30" ;; # Bright yellow background, black text
-        4) bgColor="42" fgColor="30" ;;  # Green background, black text
-        5) bgColor="44" fgColor="97" ;;  # Blue background, bright white text
+        1) bgColor="41"; triColor="38;5;196"; fgColor="93" ;;  # Red background → Red foreground for triangle
+        2) bgColor="43"; triColor="33"; fgColor="30" ;;  # Orange background → Dark yellow foreground
+        3) bgColor="103"; triColor="93"; fgColor="30" ;; # Bright yellow background → Dark yellow foreground
+        4) bgColor="46"; triColor="36"; fgColor="30" ;;  # Blue-green background → Cyan foreground
+        5) bgColor="104"; triColor="34"; fgColor="30" ;; # Light blue background → Blue foreground
         *) echo "Invalid level"; return 1 ;;
     esac
 
-    echo -e "\e[${fgColor};${bgColor}m ${caption} \e[0m"
+    # Print the caption with background color
+    echo -e "\e[${fgColor};${bgColor}m ${caption} \e[0m\e[${triColor}m\e[0m"
 }
-
 
 # Function to convert RGB values to ANSI 256-color code
 rgb_to_ansi256() {
@@ -82,14 +83,16 @@ if [[ -n $SUDO_USER ]]; then
         sudoUser=" ($SUDO_USER)"
 fi
 
-# Get flag
+# Set flag
+flag=">"
 if [[ -n $FANCYPROMPT_FLAGLEVEL && -n $FANCYPROMPT_FLAGCAPTION ]]; then
         flag=$(getFlag "$FANCYPROMPT_FLAGLEVEL" "$FANCYPROMPT_FLAGCAPTION")
 fi
 
+
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}${fgCode}"' \u'"${sudoUser}"' on \H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]'"${flag}"'\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─\[\e[0m\] \d \T '"${trimCode}"'>\[\e[0m\] '
+PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}${fgCode}"' \u'"${sudoUser}"' on \H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─\[\e[0m\] \d \T '"${flag}"'\[\e[0m\] '
 
 # Export the modified PS1
 export PS1
