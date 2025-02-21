@@ -60,9 +60,14 @@ if [[ $lValue -gt 180 ]]; then
     fgCode="\e[38;5;0m"  # Use black text for bright backgrounds
 fi
 
+# Add sudo user
+if [[ -n $SUDO_USER ]]; then
+        sudoUser=" $SUDO_USER as"
+fi
+
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}${fgCode}"' \u::\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─\[\e[0m\] \d \T '"${trimCode}"'>\[\e[0m\] '
+PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}${fgCode}${sudoUser}"' \u::\H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─\[\e[0m\] \d \T '"${trimCode}"'>\[\e[0m\] '
 
 # Export the modified PS1
 export PS1
