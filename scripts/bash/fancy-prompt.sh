@@ -34,33 +34,38 @@ getValue() {
     # Get the length of the cleaned string
     local length=${#sanitized}
 
-    # If the cleaned string is empty, return 0
-    if [ $length -eq 0 ]; then
-        echo 0
+    # If the cleaned string is empty, return 16 (minimum value)
+    if [ "$length" -eq 0 ]; then
+        echo 16
         return
     fi
 
-    # Calculate the sum of ASCII values
+    # Initialize sum
     local sum=0
+
+    # Calculate weighted sum
     for (( i=0; i<length; i++ )); do
-        sum=$((sum + $(printf "%d" "'${sanitized:i:1}")))
+        local char_value=$(( $(printf "%d" "'${sanitized:i:1}") - 65))
+        sum=$((sum + (char_value * length) ))
     done
 
-    # Calculate the average
-    local average=$((sum / length))
+    # Compute the average
+    local avg=$((sum / length))
 
-    # Normalize to 0-255 and round to the nearest multiple of 16
-    local value=$(( (average - 65) * 255 / 25 ))
-    value=$(( (value + 8) / 16 * 16 ))  # Round to nearest multiple of 16
+    # Normalize avg to 16-240 range
+    result=$(((avg - 0) * (240 - 16) / (25 * length) + 16))
 
-    # Ensure it stays within the 0-255 range
-    if [ $value -gt 255 ]; then
-        value=255
-    elif [ $value -lt 0 ]; then
-        value=0
+    # Round to nearest multiple of 16
+    result=$(((result + 8) / 16 * 16))
+
+    # Ensure it stays within the 16-240 range
+    if [ "$result" -gt 240 ]; then
+        result=240
+    elif [ "$result" -lt 16 ]; then
+        result=16
     fi
 
-    echo $value
+    echo "$result"
 }
 
 # Get the hostname
