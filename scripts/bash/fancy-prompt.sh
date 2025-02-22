@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+ANSI_START="\e["
+ANSI_FG="38;2;"
+ANSI_BG="48;2;"
+ANSI_END="m"
+ANSI_RESET="\e[0m"
+
 # Git support
 source ~/.git-prompt
 
@@ -24,6 +30,33 @@ getFlag() {
 
     # Print the caption with background color
     echo -e "\e[${bgColor};${fgColor}m ${caption} \e[0m\e[48;5;16;${trimColor}m\e[0m"
+}
+
+getRGBValue() {
+    local input="$1"
+    local sanitized=$(echo "$input" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z')  # Clean input
+    local length=${#sanitized}
+
+    # If the cleaned string is empty, return a default color
+    if [ "$length" -eq 0 ]; then
+        echo "16;16;16"  # Black
+        return
+    fi
+
+    # Initialize RGB values
+    local r=0
+    local g=0
+    local b=0
+
+    # Iterate over characters and accumulate RGB values
+    for (( i=0; i<length; i++ )); do
+        local char_value=$(printf "%d" "'${sanitized:i:1}")  # ASCII value
+        r=$(( (r + char_value) % 256 ))  # Red component
+        g=$(( (g + char_value * 2) % 256 ))  # Green component
+        b=$(( (b + char_value * 3) % 256 ))  # Blue component
+    done
+
+    echo "$r;$g;$b"
 }
 
 getValue() {
@@ -72,8 +105,10 @@ getValue() {
 host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
 
 # Set the background and trim color based on RGB values
-bgCode="\e[48;5;$(getValue $host)m"
-trimCode="\e[38;5;$(getValue $host)m"
+bgCode="${ANSI_START}${ANSI_BG}$(getRGBValue $host)${ANSI_END}"
+trimCode="${ANSI_START}${ANSI_FG}$(getRGBValue $host)${ANSI_END}"
+gitCode="${ANSI_START}${ANSI_BG}0;0;255;${ANSI_FG}255;255;0${ANSI_END}"
+workingDirCode="${ANSI_START}${ANSI_BG}0;0;0;${ANSI_FG}255;255;255${ANSI_END}"
 
 # Add sudo user
 if [[ -n $SUDO_USER ]]; then
@@ -81,13 +116,13 @@ if [[ -n $SUDO_USER ]]; then
 fi
 
 # Set flag
-if [[ -n $FANCYPROMPT_FLAGLEVEL && -n $FANCYPROMPT_FLAGCAPTION ]]; then
-        flag=$(getFlag "$FANCYPROMPT_FLAGLEVEL" "$FANCYPROMPT_FLAGCAPTION")
+if [[ -n $FP_FLAGLEVEL && -n $FP_FLAGCAPTION ]]; then
+        flag=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION")
 fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"\[\e[0m\]${bgCode}"' \u'"${sudoUser}"' on \H \[\e[0m\]\[\e[33;44m\]${PS1_CMD1}\[\e[0m\]'"${flag}"'\[\e[97;48;5;232m\] \w \[\e[0m\]\n'"${trimCode}"'╰─┤\[\e[0m\] \d \T \[\e[0m\]'"${trimCode}"'│\[\e[0m\] '
-
+PS1='\n'"${trimCode}"'╭'"${ANSI_RESET}${bgCode}"' \u'"${sudoUser}"' on \H '"${ANSI_RESET}${gitCode}"'${PS1_CMD1}'"${ANSI_RESET}${flag}${workingDirCode}"' \w '"${ANSI_RESET}"'\n'"${trimCode}"'╰─┤'"${ANSI_RESET}"' \d \T '"${trimCode}"'│'"${ANSI_RESET}"' '
+echo "$PS1"
 # Export the modified PS1
 export PS1
