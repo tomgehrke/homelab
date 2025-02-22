@@ -3,7 +3,7 @@
 # ==============================================================
 # fancy-prompt.sh
 #
-# Makes your back prompt fancy!
+# Makes your bash prompt fancy!
 #
 # NOTE: If colors seem off or adjacent characters don't blend
 #       when they should, check your terminal to see if any
@@ -64,20 +64,42 @@ getRGBValue() {
     # Iterate over characters and accumulate RGB values
     for (( i=0; i<length; i++ )); do
         local char_value=$(printf "%d" "'${sanitized:i:1}")  # ASCII value
-        r=$(( (r + char_value) % 256 ))  # Red component
-        g=$(( (g + char_value * 2) % 256 ))  # Green component
-        b=$(( (b + char_value * 3) % 256 ))  # Blue component
+        r=$(( (r + char_value) % 240 ))  # Red component
+        g=$(( (g + char_value * 2) % 240 ))  # Green component
+        b=$(( (b + char_value * 3) % 240 ))  # Blue component
     done
+
+    # Never less than 16
+    (( r < 16 )) && (( r += 16 ))
+    (( g < 16 )) && (( g += 16 ))
+    (( b < 16 )) && (( b += 16 ))
 
     echo "$r;$g;$b"
 }
 
+getLuminosity() {
+    local r=$1 g=$2 b=$3
+    local luminosity
+
+    # Multiply by 1000 to keep precision
+    luminosity=$(( (2126 * r + 7152 * g + 722 * b) / 10000 ))
+
+    echo "$luminosity"
+}
+
 # Get the hostname
 host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
+hostRGB=$(getRGBValue $host)
+luminosity=$(getLuminosity ${host//;/ })
+
+infoFG="255;255;255"
+if (( luminosity > 128 )); then
+    infoFG="0;0;0"
+fi
 
 # Set the background and trim color based on RGB values
-bgCode="${ANSI_START}${ANSI_BG}$(getRGBValue $host)${ANSI_END}"
-trimCode="${ANSI_START}${ANSI_FG}$(getRGBValue $host)${ANSI_END}"
+infoCode="${ANSI_START}${ANSI_BG}$hostRGB;${ANSI_FG}$infoFG${ANSI_END}"
+trimCode="${ANSI_START}${ANSI_FG}$hostRGB${ANSI_END}"
 gitCode="${ANSI_START}${ANSI_BG}0;0;255;${ANSI_FG}255;255;0${ANSI_END}"
 workingDirCode="${ANSI_START}${ANSI_BG}0;0;0;${ANSI_FG}255;255;255${ANSI_END}"
 
@@ -93,7 +115,7 @@ fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"${ANSI_RESET}${bgCode}"' \u'"${sudoUser}"' on \H '"${ANSI_RESET}${gitCode}"'${PS1_CMD1}'"${ANSI_RESET}${flag}${workingDirCode}"' \w '"${ANSI_RESET}"'\n'"${trimCode}"'╰─┤'"${ANSI_RESET}"' \d \T '"${trimCode}"'│'"${ANSI_RESET}"' '
+PS1='\n'"${trimCode}"'╭'"${ANSI_RESET}${infoCode}"' \u'"${sudoUser}"' on \H '"${ANSI_RESET}${gitCode}"'${PS1_CMD1}'"${ANSI_RESET}${flag}${workingDirCode}"' \w '"${ANSI_RESET}"'\n'"${trimCode}"'╰─┤'"${ANSI_RESET}"' \d \T '"${trimCode}"'│'"${ANSI_RESET}"' '
 
 # Export the modified PS1
 export PS1
