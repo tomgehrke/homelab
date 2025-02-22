@@ -3,8 +3,9 @@
 # Do nothing if not running interactively
 [[ -n $PS1 ]] || return
 
-
-CONFIG_FILE="$HOME/.config/homelab/homelab.conf"
+CONFIG_DIR="$HOME/.config/homelab"
+CONFIG_FILE="$CONFIG_DIR/homelab.conf"
+ENV_FILE="$CONFIG_DIR/homelab.env"
 
 runElevated() {
     [[ $EUID != 0 ]] && sudo "$@" || "$@"
@@ -136,6 +137,10 @@ export HISTFILESIZE=5000
 export PAGER='less'
 export TZ='America/Chicago'
 export GIT_DEFAULT_BRANCH="main"
+
+if [[ -f ${ENV_FILE} ]]; then
+        source ${ENV_FILE}
+fi
 
 # Shell options
 shopt -s cdspell

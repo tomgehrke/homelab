@@ -50,7 +50,7 @@ getRGBValue() {
     local length=${#input}
     local lowerThreshhold=32
 
-    # If the cleaned string is empty, return a default color
+    # If the string is empty, return a default color
     if [ "$length" -eq 0 ]; then
         echo "$lowerThreshhold;$lowerThreshhold;$lowerThreshhold"  # Black
         return
@@ -115,7 +115,7 @@ fi
 
 # Construct the prompt with the background and foreground colors
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"${trimCode}"'╭'"${ANSI_RESET}${infoCode}"' \u'"${sudoUser}"' on \H '"${ANSI_RESET}${gitCode}"'${PS1_CMD1}'"${ANSI_RESET}${flag}${workingDirCode}"' \w '"${ANSI_RESET}"'\n'"${trimCode}"'╰─┤'"${ANSI_RESET}"' \d \T '"${trimCode}"'│'"${ANSI_RESET}"' '
+PS1='\n'"\[${trimCode}\]"'╭'"\[${ANSI_RESET}${infoCode}\]"' \u'"${sudoUser}"' on \H '"\[${ANSI_RESET}${gitCode}\]"'${PS1_CMD1}'"\[${ANSI_RESET}\]${flag}\[${workingDirCode}\]"' \w '"\[${ANSI_RESET}\]"'\n'"\[${trimCode}\]"'╰─┤'"\[${ANSI_RESET}\]"' \d \T '"\[${trimCode}\]"'│'"\[${ANSI_RESET}\]"' '
 
 # Export the modified PS1
 export PS1
