@@ -50,7 +50,7 @@ getRGBValue() {
     local length=${#input}
     local lowerThreshhold=32
 
-    # If the cleaned string is empty, return a default color
+    # If the string is empty, return a default color
     if [ "$length" -eq 0 ]; then
         echo "$lowerThreshhold;$lowerThreshhold;$lowerThreshhold"  # Black
         return
