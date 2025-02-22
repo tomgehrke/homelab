@@ -72,48 +72,6 @@ getRGBValue() {
     echo "$r;$g;$b"
 }
 
-getValue() {
-    local input="$1"
-    # Convert to uppercase and strip out non-A-Z characters
-    local sanitized=$(echo "$input" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z')
-
-    # Get the length of the cleaned string
-    local length=${#sanitized}
-
-    # If the cleaned string is empty, return 16 (minimum value)
-    if [ "$length" -eq 0 ]; then
-        echo 16
-        return
-    fi
-
-    # Initialize sum
-    local sum=0
-
-    # Calculate weighted sum
-    for (( i=0; i<length; i++ )); do
-        local char_value=$(( $(printf "%d" "'${sanitized:i:1}") - 65))
-        sum=$((sum + (char_value * length) ))
-    done
-
-    # Compute the average
-    local avg=$((sum / length))
-
-    # Normalize avg to 16-240 range
-    result=$(((avg - 0) * (240 - 16) / (25 * length) + 16))
-
-    # Round to nearest multiple of 16
-    result=$(((result + 8) / 16 * 16))
-
-    # Ensure it stays within the 16-240 range
-    if [ "$result" -gt 240 ]; then
-        result=240
-    elif [ "$result" -lt 16 ]; then
-        result=16
-    fi
-
-    echo "$result"
-}
-
 # Get the hostname
 host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
 
