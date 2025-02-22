@@ -53,7 +53,7 @@ getRGBValue() {
 
     # If the cleaned string is empty, return a default color
     if [ "$length" -eq 0 ]; then
-        echo "16;16;16"  # Black
+        echo "$lowerThreshhold;$lowerThreshhold;$lowerThreshhold"  # Black
         return
     fi
 
