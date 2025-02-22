@@ -3,6 +3,8 @@
 # Tom's Homelab Support Installer
 # ===============================
 
+cd "${0%/*}"
+
 runElevated() {
     [[ $EUID != 0 ]] && sudo "$@" || "$@"
 }
