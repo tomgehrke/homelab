@@ -90,7 +90,7 @@ getLuminosity() {
 # Get the hostname
 host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
 hostRGB=$(getRGBValue $host)
-luminosity=$(getLuminosity ${host//;/ })
+luminosity=$(getLuminosity ${hostRGB//;/ })
 
 infoFG="255;255;255"
 if (( luminosity > 128 )); then
