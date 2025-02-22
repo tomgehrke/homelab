@@ -49,6 +49,7 @@ getRGBValue() {
     local input="$1"
     local sanitized=$(echo "$input" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z')  # Clean input
     local length=${#sanitized}
+    local lowerThreshhold=32
 
     # If the cleaned string is empty, return a default color
     if [ "$length" -eq 0 ]; then
@@ -69,10 +70,10 @@ getRGBValue() {
         b=$(( (b + char_value * 3) % 240 ))  # Blue component
     done
 
-    # Never less than 16
-    (( r < 16 )) && (( r += 16 ))
-    (( g < 16 )) && (( g += 16 ))
-    (( b < 16 )) && (( b += 16 ))
+    # Never less than our lower thresshold
+    (( r < $lowerThreshhold )) && (( r += $lowerThreshhold ))
+    (( g < $lowerThreshhold )) && (( g += $lowerThreshhold ))
+    (( b < $lowerThreshhold )) && (( b += $lowerThreshhold ))
 
     echo "$r;$g;$b"
 }
