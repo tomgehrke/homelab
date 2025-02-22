@@ -4,6 +4,7 @@ ANSI_START="\e["
 ANSI_FG="38;2;"
 ANSI_BG="48;2;"
 ANSI_END="m"
+ANSI_BOLD="\e[1m"
 ANSI_RESET="\e[0m"
 
 # Git support
@@ -105,9 +106,9 @@ getValue() {
 host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
 
 # Set the background and trim color based on RGB values
-bgCode="${ANSI_START}${ANSI_BG}$(getRGBValue $host)${ANSI_END}"
-trimCode="${ANSI_START}${ANSI_FG}$(getRGBValue $host)${ANSI_END}"
-gitCode="${ANSI_START}${ANSI_BG}0;0;255;${ANSI_FG}255;255;0${ANSI_END}"
+bgCode="${ANSI_BOLD}${ANSI_START}${ANSI_BG}$(getRGBValue $host)${ANSI_END}"
+trimCode="${ANSI_BOLD}${ANSI_START}${ANSI_FG}$(getRGBValue $host)${ANSI_END}"
+gitCode="${ANSI_BOLD}${ANSI_START}${ANSI_BG}0;0;255;${ANSI_FG}255;255;0${ANSI_END}"
 workingDirCode="${ANSI_START}${ANSI_BG}0;0;0;${ANSI_FG}255;255;255${ANSI_END}"
 
 # Add sudo user
