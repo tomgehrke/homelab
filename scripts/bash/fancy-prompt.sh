@@ -50,7 +50,7 @@ getValue() {
     local average=$((sum / length))
 
     # Normalize to 0-255 and round to the nearest multiple of 16
-    local value=$(( (average * 255) / 90 ))  # 90 is the max ASCII value for A-Z
+    local value=$(( (average - 65) * 255 / 25 ))
     value=$(( (value + 8) / 16 * 16 ))  # Round to nearest multiple of 16
 
     # Ensure it stays within the 0-255 range
