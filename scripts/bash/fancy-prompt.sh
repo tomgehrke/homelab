@@ -47,8 +47,7 @@ getFlag() {
 
 getRGBValue() {
     local input="$1"
-    local sanitized=$(echo "$input" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z')  # Clean input
-    local length=${#sanitized}
+    local length=${#input}
     local lowerThreshhold=32
 
     # If the cleaned string is empty, return a default color
@@ -64,7 +63,7 @@ getRGBValue() {
 
     # Iterate over characters and accumulate RGB values
     for (( i=0; i<length; i++ )); do
-        local char_value=$(printf "%d" "'${sanitized:i:1}")  # ASCII value
+        local char_value=$(printf "%d" "'${input:i:1}")  # ASCII value
         r=$(( (r + char_value) % 240 ))  # Red component
         g=$(( (g + char_value * 2) % 240 ))  # Green component
         b=$(( (b + char_value * 3) % 240 ))  # Blue component
