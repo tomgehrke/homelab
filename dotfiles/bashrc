@@ -186,8 +186,5 @@ fi
 
 source ~/scripts/fancy-prompt.sh
 
-# Set console title
-printf '\033]0;%s on %s\007' "$USER" "$HOSTNAME"
-
 # Report location
 echo Welcome to $(whereami)!
