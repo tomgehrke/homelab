@@ -11,6 +11,12 @@ fi
 echo "Checking for mounts over $thresholdPercentage% used..."
 dfOutput="$(df --human-readable --output=pcent,size,used,avail,source,target)"
 while IFS= read -r line; do
+
+  # Exclude lines we don't care about
+  if [[ $line =~ 'snapfuse' ]]; then
+   continue
+  fi
+
   percentUsed=$(echo $line | grep -oP "^[0-9]{1,3}")
 
   if [[ -z "$percentUsed" ]]; then
