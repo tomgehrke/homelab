@@ -8,7 +8,8 @@ CONFIG_FILE="$CONFIG_DIR/homelab.conf"
 ENV_FILE="$CONFIG_DIR/homelab.env"
 
 runElevated() {
-    [[ $EUID != 0 ]] && sudo "$@" || "$@"
+    [[ $EUID != 0 ]] && sudo "$@" || "$@" > /dev/null 2>&1
+    return $?
 }
 
 cdhl() {
@@ -55,64 +56,63 @@ initializeHomelab() {
                 jq -n '{
                         allApps: ["ncdu","eza","bat"],
                         aptApps: ["screenfetch"],
-                        dnfApps: ["fastfetch"]
+                        dnfApps: ["fastfetch"],
+                        excludeApps: []
                 }' > "$CONFIG_FILE"
                 echo "Homelab config file created: $CONFIG_FILE"
         fi
 }
 
 installApps() {
-        local packageManager=$(getPackageManager)
-        local requiredApps=()
+    local packageManager=$(getPackageManager)
+    local requiredApps=()
 
-        if [[ -z $packageManager ]]; then
-                echo "No supported package managers found. Nothing will be installed."
-                return 1
+    if [[ -z $packageManager ]]; then
+        echo "No supported package managers found. Nothing will be installed."
+        return 1
+    fi
+
+    # In case excludeApps does not exist in the legacy config file
+    jq '.excludeApps //= []' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
+
+    mapfile -t excludeApps < <(jq -r '.excludeApps[]' "$CONFIG_FILE")
+    if [[ $packageManager == "apt" ]]; then
+        installedApps="$(apt list --installed 2>/dev/null)"
+        mapfile -t requiredApps < <(jq -r '.allApps[] , .aptApps[]' "$CONFIG_FILE")
+    elif [[ $packageManager == "dnf" ]]; then
+        installedApps="$(dnf list installed 2>/dev/null)"
+        mapfile -t requiredApps < <(jq -r '.allApps[] , .dnfApps[]' "$CONFIG_FILE")
+    fi
+
+    local repositoryUpdated=''
+    for app in "${requiredApps[@]}"; do
+        if echo "$installedApps" | grep "^$app[/\.]" >/dev/null 2>&1; then
+            continue
         fi
 
-        if [[ $packageManager == "apt" ]]; then
-                installedApps="$(apt list --installed 2>/dev/null)"
-                mapfile -t requiredApps < <(jq -r '.allApps[] , .aptApps[]' "$CONFIG_FILE")
-        elif [[ $packageManager == "dnf" ]]; then
-                installedApps="$(dnf list installed 2>/dev/null)"
-                mapfile -t requiredApps < <(jq -r '.allApps[] , .dnfApps[]' "$CONFIG_FILE")
+        if [[ " ${excludeApps[*]} " == *" $app "* ]]; then
+                echo -e "$app was added to the exclude list and will be skipped\n"
+                continue
         fi
 
-        local repositoryUpdated=''
-        for app in "${requiredApps[@]}"; do
+        case $packageManager in
+        apt)
+            [[ $repositoryUpdated != 'y' ]] && echo "Updating repositories..." && runElevated apt update -q > /dev/null 2>&1 && repositoryUpdated='y'
+            echo "Installing $app..."
+            runElevated apt install -y "$app" > /dev/null 2>&1
+            ;;
+        dnf)
+            [[ $repositoryUpdated != 'y' ]] && echo "Updating repositories..." && runElevated dnf update -q -y && runElevated dnf install epel-release -q -y && repositoryUpdated='y'
+            echo "Installing $app..."
+            runElevated dnf install -y "$app" 2>&1
+            ;;
+        esac
 
-                # Does app show up in list of installed apps
-                if echo "$installedApps" | grep "^$app[/\.]" >/dev/null 2>&1; then
-                        continue
-                fi
-
-                # Install missing packages
-                case $packageManager in
-                apt)
-                        if [[ $repositoryUpdated != 'y' ]]; then
-                                echo "App installation required. Updating repositories..."
-                                runElevated apt update -q 2>&1 | grep -v "WARNING: apt does not have a stable CLI interface" >/dev/null
-                                repositoryUpdated='y'
-                        fi
-                        echo "Installing $app..."
-                        runElevated apt install -y $app 2>&1 | grep -v "WARNING: apt does not have a stable CLI interface" >/dev/null
-                        ;;
-                dnf)
-                        if [[ $repositoryUpdated != 'y' ]]; then
-                                echo "App installation required. Updating repositories..."
-                                runElevated dnf update -q -y
-                                runElevated dnf install epel-release -q -y
-                                repositoryUpdated='y'
-                        fi
-                        echo "Installing $app..."
-                        runElevated dnf install -y $app 2>&1
-                        ;;
-                *)
-                        echo "Unknown package manager: $packageManager"
-                        ;;
-                esac
-        done
-
+        if (( $? > 0 )); then
+            echo "Install failed! Adding $app to the list of excluded apps."
+            jq --arg app "$app" '.excludeApps += [$app]' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
+        fi
+    done
 }
 
 initializeHomelab
