@@ -1,3 +1,5 @@
+#!/bin/usr/env ash
+
 # Loads all Homelab support
 
 # Do nothing if not running interactively
@@ -45,10 +47,8 @@ getPackageManager() {
 
 initializeHomelab() {
 
-        # Check for existence of config directory
-        if [[ ! -d "$(dirname $CONFIG_FILE)" ]]; then
-                mkdir -p "$(dirname $CONFIG_FILE)"
-        fi
+        # Make sure config directory exists
+        mkdir -p "$CONFIG_DIR"
 
         # Check for existence of the config file
         if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -59,7 +59,7 @@ initializeHomelab() {
                         dnfApps: ["fastfetch"],
                         excludeApps: []
                 }' > "$CONFIG_FILE"
-                echo "Homelab config file created: $CONFIG_FILE"
+                echo -e "Homelab config file created: $CONFIG_FILE\n"
         fi
 }
 
@@ -129,12 +129,9 @@ if [[ ! -d "$HOME/.nanobackup" ]]; then
 fi
 
 # Environment
-export EDITOR="nano"
+export EDITOR="nano" PAGER="less"
 export GREP_COLOR='1;36'
-export HISTCONTROL='ignoredups'
-export HISTSIZE=5000
-export HISTFILESIZE=5000
-export PAGER='less'
+export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
 export TZ='America/Chicago'
 export GIT_DEFAULT_BRANCH="main"
 
