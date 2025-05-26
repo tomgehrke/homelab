@@ -172,7 +172,7 @@ shopt -s dirspell 2>/dev/null || true
 alias ..='echo "cd .."; cd ..'
 alias ...='echo "cd ../.."; cd ../..'
 alias ....='echo "cd ../../.."; cd ../../..'
-alias whereami='curl -sSf --connect-timeout 1 https://ipinfo.io/city 2>/dev/null || echo "NO CONNECTION"'
+alias whereami='curl -sSf --connect-timeout 3 https://ipinfo.io/city 2>/dev/null || echo "NO CONNECTION"'
 alias l='ls'
 alias ll='ls -hAlF'
 alias flushdns='resolvectl flush-caches'
