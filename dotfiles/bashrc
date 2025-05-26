@@ -8,6 +8,7 @@
 CONFIG_DIR="$HOME/.config/homelab"
 CONFIG_FILE="$CONFIG_DIR/homelab.conf"
 ENV_FILE="$CONFIG_DIR/homelab.env"
+HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)"
 
 runElevated() {
     [[ $EUID != 0 ]] && sudo "$@" || "$@" > /dev/null 2>&1
@@ -15,12 +16,7 @@ runElevated() {
 }
 
 cdhl() {
-        # Change to homelab directory, wherever it is
-        if [[ -d ~/homelab ]]; then
-                cd ~/homelab
-        elif [[ -d /mnt/homelab ]]; then
-                cd /mnt/homelab
-        fi
+        cd "$HOMELAB_ROOT"
 }
 
 cdhp() {
@@ -115,7 +111,35 @@ installApps() {
     done
 }
 
+checkRepo() {
+        git -C "$HOMELAB_ROOT" fetch origin
+
+        # See if local repo is behind...
+        if (( $(git -C "$HOMELAB_ROOT" rev-list --count @{u}..@ ) > 0 )); then
+                if read -p "Homelab repo needs updating. Would you like to do this now? (y/n): " response && [[ "${response,,}" == "y" ]]; then
+                        git -C "$HOMELAB_ROOT" pull
+                fi
+        fi
+
+        # See if local repo is ahead...
+        if [[ "$(git -C "$HOMELAB_ROOT" cherry -v @{u})" ]]; then
+                read -p "You have local Homelab changes. Push to remote? (y/n): " pushNow
+                if read -p "You have local Homelab changes. Push to remote? (y/n): " response && [[ "${response,,}" == "y" ]]; then
+                        git -C "$HOMELAB_ROOT" push
+                fi
+        fi
+
+        if ! git -C "$HOMELAB_ROOT" diff --cached --quiet; then
+                echo -e "Your Homelab repo has staged but uncommited changes.\n"
+        fi
+
+        if ! git -C "$HOMELAB_ROOT" diff --quiet; then
+                echo -e "Your Homelab repo has unstaged changes.\n"
+        fi
+}
+
 initializeHomelab
+checkRepo
 installApps
 
 # set PATH so it includes homelab scripts
