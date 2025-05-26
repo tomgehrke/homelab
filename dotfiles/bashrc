@@ -20,7 +20,7 @@ cdhl() {
 }
 
 cdhp() {
-        # Change to homelab directory
+        # Change to private homelab directory
         if [[ -d ~/homelab_priv ]]; then
                 cd ~/homelab_priv
         fi
@@ -63,8 +63,11 @@ installApps() {
         return 1
     fi
 
+    local temp_json
+    temp_json="$(mktemp)"
+
     # In case excludeApps does not exist in the legacy config file
-    jq '.excludeApps //= []' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
+    jq '.excludeApps //= []' "$CONFIG_FILE" > "$temp_json" && mv "$temp_json" "$CONFIG_FILE"
 
     mapfile -t excludeApps < <(jq -r '.excludeApps[]' "$CONFIG_FILE")
     if [[ $packageManager == "apt" ]]; then
@@ -101,7 +104,7 @@ installApps() {
 
         if (( $? > 0 )); then
             echo "Install failed! Adding $app to the list of excluded apps."
-            jq --arg app "$app" '.excludeApps += [$app]' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
+            jq --arg app "$app" '.excludeApps += [$app]' "$CONFIG_FILE" > "$temp_json" && mv "$temp_json" "$CONFIG_FILE"
         fi
     done
 }
@@ -120,14 +123,14 @@ checkRepo() {
         fi
 
         # See if local repo is behind...
-        if (( $(git -C "$HOMELAB_ROOT" rev-list --count @{u}..@ ) > 0 )); then
+        if (( $(git -C "$HOMELAB_ROOT" rev-list --count @..@{u} ) > 0 )); then
                 if read -p "Homelab repo needs updating. Would you like to do this now? (y/n): " response && [[ "${response,,}" == "y" ]]; then
                         git -C "$HOMELAB_ROOT" pull
                 fi
         fi
 
         # See if local repo is ahead...
-        if [[ "$(git -C "$HOMELAB_ROOT" cherry -v @{u})" ]]; then
+        if (( $(git -C "$HOMELAB_ROOT" rev-list --count @{u}..@ ) > 0 )); then
                 if read -p "You have local Homelab changes. Push to remote? (y/n): " response && [[ "${response,,}" == "y" ]]; then
                         git -C "$HOMELAB_ROOT" push
                 fi
