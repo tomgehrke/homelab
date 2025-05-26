@@ -147,9 +147,7 @@ if [[ -d "$HOME/scripts" ]] ; then
 fi
 
 # Make sure there is a nano backup directory
-if [[ ! -d "$HOME/.nanobackup" ]]; then
-        mkdir "$HOME/.nanobackup"
-fi
+mkdir -p "$HOME/.nanobackup"
 
 # Environment
 export EDITOR="nano" PAGER="less"
