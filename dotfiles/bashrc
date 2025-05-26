@@ -1,4 +1,4 @@
-#!/bin/usr/env ash
+#!/bin/usr/env bash
 
 # Loads all Homelab support
 
@@ -28,12 +28,7 @@ cdhp() {
 
 getPackageManager() {
         # Determine Package Manager
-        local packageManagers=(
-                apt
-                dnf
-        )
-
-        for packageManager in "${packageManagers[@]}"; do
+        for packageManager in apt dnf; do
                 if command -v $packageManager &>/dev/null; then
                         echo $packageManager
                         return
