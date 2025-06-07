@@ -4,11 +4,12 @@ checkRepo() {
         local repoPath="$1"
         local fetchResult
         local localUnstaged localUncommitted localBehind localAhead localUntracked
+        local attentionRequired
 
         git -C "$repoPath" fetch --quiet
         fetchResult=$?
         if [[ $fetchResult -gt 0 ]]; then
-                exit $fetchResult
+                return $fetchResult
         fi
 
         # See if local repo has unstaged changes
@@ -30,18 +31,22 @@ checkRepo() {
 
         # Report Results
         if [[ "$localUnstaged" == true ]]; then
+                attentionRequired=true
                 echo "==> ${repoPath} has unstaged changes."
         fi
 
         if [[ "$localUncommitted" == true ]]; then
+                attentionRequired=true
                 echo "==> ${repoPath} has staged but uncommitted changes."
         fi
 
         if [[ "$localUntracked" == true ]]; then
+                attentionRequired=true
                 echo "==> ${repoPath} has untracked files."
         fi
 
         if [[ "$localBehind" == true ]]; then
+                attentionRequired=true
                 read -p "==> ${repoPath} needs updating. Would you like to do this now? (y/n): " response
                 if [[ "${response,,}" == "y" ]]; then
                         git -C "$repoPath" pull
@@ -49,11 +54,19 @@ checkRepo() {
         fi
 
         if [[ "$localAhead" == true ]]; then
+                attentionRequired=true
                 read -p "==> ${repoPath} has local changes. Push to remote? (y/n): " response
                 if [[ "${response,,}" == "y" ]]; then
                         git -C "$repoPath" push
                 fi
         fi
+
+        if [[ "$attentionRequired" == true ]]; then
+                echo
+        fi
+
 }
 
-checkRepo "$1"
+if [[ $- == *i* && "${BASH_SOURCE[0]}" == "$0" ]]; then
+        checkRepo "$1"
+fi
