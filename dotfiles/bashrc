@@ -47,7 +47,7 @@ initializeHomelab() {
         if [[ ! -f "$CONFIG_FILE" ]]; then
                 # Add default set of applications to new config
                 jq -n '{
-                        allApps: ["ncdu","eza","bat"],
+                        allApps: ["ncdu","eza","bat","mc"],
                         aptApps: ["screenfetch"],
                         dnfApps: ["fastfetch"],
                         excludeApps: []
