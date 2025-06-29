@@ -20,19 +20,26 @@ checkRepo() {
         # Check for untracked files
         [[ -n "$(git -C "$repoPath" ls-files --others --exclude-standard)" ]] && localStatus="${localStatus}, UNTRACKED"
 
-        # See if local repo is behind
-        behindCount=$(git -C "$repoPath" rev-list --quiet --count @..@{u})
-        [[ "$behindCount" -gt 0 ]] && localBehind=true
+        # Make sure we're on a branch with an upstream
+        if git -C "$repoPath" rev-parse --abbrev-ref --symbolic-full-name @{u} &>/dev/null; then
+            local currentBranch upstreamRef
 
-        # See if local repo is ahead
-        aheadCount=$(git -C "$repoPath" rev-list --quiet --count @{u}..@)
-        [[ "$aheadCount" -gt 0 ]] && localAhead=true
+            currentBranch=$(git -C "$repoPath" symbolic-ref --quiet --short HEAD)
+            upstreamRef=$(git -C "$repoPath" for-each-ref --format='%(upstream:short)' "refs/heads/$currentBranch")
+        fi
+
+        if [[ -n "$upstreamRef" ]]; then
+                behindCount=$(git -C "$repoPath" rev-list --count "$currentBranch..$upstreamRef")
+                aheadCount=$(git -C "$repoPath" rev-list --count "$upstreamRef..$currentBranch")
+
+                [[ "$behindCount" =~ ^[0-9]+$ && "$behindCount" -gt 0 ]] && localBehind=true
+                [[ "$aheadCount" =~ ^[0-9]+$ && "$aheadCount" -gt 0 ]] && localAhead=true
+        fi
 
         # Report Results
 
         if [[ -n "$localStatus" ]]; then
                 echo "=> ${repoPath} status: ${localStatus:2}"
-                echo
         fi
 
         if [[ "$localBehind" = true ]]; then
@@ -40,6 +47,7 @@ checkRepo() {
                 if [[ "${response,,}" = "y" ]]; then
                         git -C "$repoPath" pull
                 fi
+                echo
         fi
 
         if [[ "$localAhead" = true ]]; then
@@ -47,6 +55,7 @@ checkRepo() {
                 if [[ "${response,,}" = "y" ]]; then
                         git -C "$repoPath" push
                 fi
+                echo
         fi
 }
 
