@@ -111,17 +111,20 @@ installApps() {
     done
 }
 
+# Performs initial setup if required
 initializeHomelab
-checkRepo "$HOMELAB_ROOT"
-installApps
 
 # set PATH so it includes homelab scripts
 if [[ -d "$HOME/scripts" ]] ; then
         PATH="$HOME/scripts:$PATH"
 fi
 
-# Make sure there is a nano backup directory
-mkdir -p "$HOME/.nanobackup"
+# Checks homelab repository and prompts for update
+echo Checking Homelab repository...
+checkRepo "$HOMELAB_ROOT"
+
+# Installs required applications
+installApps
 
 # Environment
 export EDITOR="nano" PAGER="less"
@@ -130,6 +133,10 @@ export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
 export TZ='America/Chicago'
 export GIT_DEFAULT_BRANCH="main"
 
+# Make sure there is a nano backup directory
+mkdir -p "$HOME/.nanobackup"
+
+# Update environment
 if [[ -f ${ENV_FILE} ]]; then
         source ${ENV_FILE}
 fi
@@ -169,10 +176,18 @@ fi
 # Show system info
 command -v screenfetch >/dev/null && screenfetch
 command -v fastfetch >/dev/null && fastfetch
+echo
+
+# Check for bashrc.d and execute contents
+if [ -d "$HOME/.bashrc.d/" ]; then
+        for file in "$HOME/.bashrc.d/"*; do
+        	[ -r "$file" ] && source "$file"
+        done
+        unset file
+fi
 
 # Check filesystem usage
 if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
-        echo
         $HOME/scripts/check-freespace.sh 75
 fi
 
