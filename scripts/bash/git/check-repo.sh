@@ -5,7 +5,7 @@ checkRepo() {
         local fetchResult
         local localStatus behindCount localBehind aheadCount localAhead
 
-        git -C "$repoPath" fetch --quiet
+        git -C "$repoPath" fetch --quiet >/dev/null
         fetchResult=$?
         if [[ $fetchResult -gt 0 ]]; then
                 return $fetchResult
