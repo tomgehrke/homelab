@@ -13,7 +13,7 @@ HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse 
 source "$HOMELAB_ROOT/scripts/bash/git/check-repo.sh"
 
 runElevated() {
-    [[ $EUID != 0 ]] && sudo "$@" || "$@" > /dev/null 2>&1
+    [[ $EUID != 0 ]] && sudo "$@" || "$@"
     return $?
 }
 
