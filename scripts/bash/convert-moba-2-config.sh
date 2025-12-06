@@ -20,7 +20,7 @@ sshFile="$2"
 echo "Parsing $mobaFile..."
 echo "Generating SSH config to $sshFile..."
 
-# Helper Functions ----------------------------------------
+# Functions ----------------------------------------
 
 cleanSessionName() {
     local sessionName="$1"
