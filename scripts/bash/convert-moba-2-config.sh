@@ -57,7 +57,7 @@ sectionHeader=""
 
 grep "=" "$mobaFile" | while IFS= read -r line; do
     # Remove Windows CR
-    # line="${line//$'\r'/}"
+    line="${line//$'\r'/}"
 
     # Split into Key and Value
     key="${line%%=*}"
