@@ -47,7 +47,7 @@ initializeHomelab() {
         if [[ ! -f "$CONFIG_FILE" ]]; then
                 # Add default set of applications to new config
                 jq -n '{
-                        allApps: ["ncdu","eza","bat","mc"],
+                        allApps: ["ncdu","bat","mc"],
                         aptApps: ["screenfetch"],
                         dnfApps: ["fastfetch"],
                         excludeApps: []
@@ -158,19 +158,15 @@ alias flushdns='resolvectl flush-caches'
 alias update-all='runElevated apt update && runElevated apt upgrade -y'
 grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
 
+alias ls='ls --group-directories-first --color=auto'
+eval $(dircolors -b)
+
 if command -v batcat >/dev/null 2>&1; then
         alias bat='batcat'
 fi
 
 if command -v ncdu >/dev/null 2>&1; then
         alias du='ncdu -x -e --color dark'
-fi
-
-if command -v eza >/dev/null 2>&1; then
-        alias ls='eza --group-directories-first --icons'
-else
-        alias ls='ls --group-directories-first --color=auto'
-        eval $(dircolors -b)
 fi
 
 # Show system info
