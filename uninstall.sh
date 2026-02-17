@@ -26,7 +26,6 @@ dotFiles=(
 	nanorc
 	ssh/config
 	git-prompt
-	macshadey-bash.nanorc
 )
 for dotFile in "${dotFiles[@]}"; do
 	if [[ -L ~/.$dotFile ]]; then

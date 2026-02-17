@@ -53,7 +53,6 @@ dotFiles=(
 	gitconfig
 	nanorc
 	git-prompt
-	macshadey-bash.nanorc
 )
 for dotFile in "${dotFiles[@]}"; do
 	[[ -d ~/.$dotFile && ! -L ~/.$dotFile ]]
