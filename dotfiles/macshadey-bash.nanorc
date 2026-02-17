@@ -1,0 +1,41 @@
+## Macshadey Dark theme for Bash
+
+syntax "macshadey-bash" "\.sh$" "\.bash$" "bashrc$" "bash_profile$"
+header "^#!.*(bash|sh)"
+
+# Default text color
+color grey "."
+
+# Function declarations
+color yellow "^[A-Za-z0-9_-]+\(\)"
+
+# Keywords
+color bold,red "\<(break|case|continue|do|done|elif|else|esac|exit|fi|for|function|if|in|read|return|select|shift|then|time|until|while)\>"
+color bold,red "\<(declare|eval|exec|export|let|local)\>"
+
+# Operators and Symbols
+color yellow "[][{}():;|`$<>!=&\]"
+color yellow "-(eq|ne|gt|lt|ge|le|ef|ot|nt)\>"
+
+# Options (Short and long)
+color magenta "[[:blank:]](-[A-Za-z]|--\<[A-Za-z-]+)\>"
+
+# Common commands (using Function color)
+color yellow "\<(awk|cat|cd|ch(grp|mod|own)|cp|cut|echo|env|grep|head|install|ln|make|mkdir|mv|popd|printf|pushd|rm|rmdir|sed|set|sort|tail|tar|touch|umask|unset)\>"
+
+# Variables
+color lightblue "\$([-@*#?$!0-9]|[[:alpha:]_][[:alnum:]_]*)"
+color lightblue "\$\{[#!]?([-@*#?$!]|[0-9]+|[[:alpha:]_][[:alnum:]_]*)(\[([[:blank:]]*[[:alnum:]_]+[[:blank:]]*|@)\])?(([#%/]|:?[-=?+])[^}]*\}|\[|\})"
+
+# Numbers and Constants
+color cyan "\<[0-9]+\>"
+color cyan "\<(true|false|null)\>"
+
+# Strings
+color white ""([^"\]|\.)*"|'([^'\]|\.)*'"
+
+# Comments
+color grey "(^|[[:blank:]])#.*"
+
+# Trailing whitespace
+color ,red "[[:space:]]+$"
