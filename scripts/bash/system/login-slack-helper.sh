@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Workaround to get slack to open workspaces correctly.
 # Problem and workarond concept as described here:
 # https://stackoverflow.com/questions/70867064/signing-into-slack-desktop-not-working-on-4-23-0-64-bit-ubuntu
