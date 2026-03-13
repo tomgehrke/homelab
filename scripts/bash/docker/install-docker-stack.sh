@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Reference - https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
 
 # Add Docker's official GPG key:
