@@ -117,7 +117,7 @@ fi
 # FP_FLAGLEVEL and FP_FLAGCAPTION can be exported at any time to show/update the flag.
 # Append to PROMPT_COMMAND to preserve any existing hooks (conda, venv, direnv, etc.)
 PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) "); [[ -n ${FP_FLAGLEVEL:-} && -n ${FP_FLAGCAPTION:-} ]] && PS1_FLAG=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION") || PS1_FLAG=""'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
-PS1='\n'"\[${trimCode}\]"'╭'"\[${ANSI_RESET}${infoCode}\]"' \u'"${sudoUser}"' on \H '"\[${ANSI_RESET}${gitCode}\]"'${PS1_CMD1}'"\[${ANSI_RESET}\]"'${PS1_FLAG}'"\[${workingDirCode}\]"' \w '"\[${ANSI_RESET}\]"'\n'"\[${trimCode}\]"'╰─┤'"\[${ANSI_RESET}\]"' \d \T '"\[${trimCode}\]"'│'"\[${ANSI_RESET}\]"' '
+PS1='\n'"\[${ANSI_RESET}${infoCode}\]"' \u'"${sudoUser}"' on \H '"\[${ANSI_RESET}${gitCode}\]"'${PS1_CMD1}'"\[${ANSI_RESET}\]"'${PS1_FLAG}'"\[${workingDirCode}\]"' \w '"\[${ANSI_RESET}\]"'\n'"\[${trimCode}\]"'│'"\[${ANSI_RESET}\]"' \d \T '"\[${trimCode}\]"'>'"\[${ANSI_RESET}\]"' '
 
 # Export the modified PS1
 export PS1
