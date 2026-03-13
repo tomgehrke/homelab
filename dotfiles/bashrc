@@ -50,7 +50,8 @@ initializeHomelab() {
                         allApps: ["ncdu","bat","mc"],
                         aptApps: ["screenfetch"],
                         dnfApps: ["fastfetch"],
-                        excludeApps: []
+                        excludeApps: [],
+                        diskThreshold: 75
                 }' > "$CONFIG_FILE"
                 echo -e "Homelab config file created: $CONFIG_FILE\n"
         fi
@@ -68,8 +69,8 @@ installApps() {
     local temp_json
     temp_json="$(mktemp)"
 
-    # In case excludeApps does not exist in the legacy config file
-    jq '.excludeApps //= []' "$CONFIG_FILE" > "$temp_json" && mv "$temp_json" "$CONFIG_FILE"
+    # Migrate legacy config files missing optional fields
+    jq '.excludeApps //= [] | .diskThreshold //= 75' "$CONFIG_FILE" > "$temp_json" && mv "$temp_json" "$CONFIG_FILE"
 
     mapfile -t excludeApps < <(jq -r '.excludeApps[]' "$CONFIG_FILE")
     if [[ $packageManager == "apt" ]]; then
@@ -184,7 +185,8 @@ fi
 
 # Check filesystem usage
 if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
-        $HOME/scripts/check-freespace.sh 75
+        diskThreshold=$(jq -r '.diskThreshold // 75' "$CONFIG_FILE")
+        $HOME/scripts/check-freespace.sh "$diskThreshold"
 fi
 
 source ~/scripts/fancy-prompt.sh
