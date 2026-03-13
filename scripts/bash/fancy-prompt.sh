@@ -19,8 +19,12 @@ ANSI_END="m"
 ANSI_BOLD="\e[1m"
 ANSI_RESET="\e[0m"
 
-# Git support
-source ~/.git-prompt
+# Git support — degrade gracefully if .git-prompt is not yet linked
+if [[ -f ~/.git-prompt ]]; then
+    source ~/.git-prompt
+else
+    __git_ps1() { :; }
+fi
 
 GIT_PS1_SHOWDIRTYSTATE=yes
 GIT_PS1_SHOWUNTRACKEDFILES=yes
@@ -42,17 +46,17 @@ getFlag() {
     esac
 
     # Print the caption with background color
-    echo -e "\e[${bgColor};${fgColor}m ${caption} \e[0m\e[48;5;16;${trimColor}m\e[0m"
+    echo -e "\e[${bgColor};${fgColor}m ${caption} \e[0m\e[48;5;16;${trimColor}m\e[0m"
 }
 
 getRGBValue() {
     local input="$1"
     local length=${#input}
-    local lowerThreshhold=32
+    local lowerThreshold=32
 
     # If the string is empty, return a default color
     if [ "$length" -eq 0 ]; then
-        echo "$lowerThreshhold;$lowerThreshhold;$lowerThreshhold"  # Black
+        echo "$lowerThreshold;$lowerThreshold;$lowerThreshold"  # Black
         return
     fi
 
@@ -69,10 +73,10 @@ getRGBValue() {
         b=$(( (b + char_value * 3) % 240 ))  # Blue component
     done
 
-    # Never less than our lower thresshold
-    (( r < $lowerThreshhold )) && (( r += $lowerThreshhold ))
-    (( g < $lowerThreshhold )) && (( g += $lowerThreshhold ))
-    (( b < $lowerThreshhold )) && (( b += $lowerThreshhold ))
+    # Never less than our lower threshold
+    (( r < lowerThreshold )) && (( r += lowerThreshold ))
+    (( g < lowerThreshold )) && (( g += lowerThreshold ))
+    (( b < lowerThreshold )) && (( b += lowerThreshold ))
 
     echo "$r;$g;$b"
 }
@@ -81,15 +85,15 @@ getLuminosity() {
     local r=$1 g=$2 b=$3
     local luminosity
 
-    # Multiply by 1000 to keep precision
+    # Scale relative luminance (0.2126R + 0.7152G + 0.0722B) to 0-255 range
     luminosity=$(( (2126 * r + 7152 * g + 722 * b) / 10000 ))
 
     echo "$luminosity"
 }
 
 # Get the hostname
-host="${HOSTNAME:-$(command -v hostname && hostname || echo "$NAME")}"
-hostRGB=$(getRGBValue $host)
+host="${HOSTNAME:-$(hostname 2>/dev/null || echo "localhost")}"
+hostRGB=$(getRGBValue "$host")
 luminosity=$(getLuminosity ${hostRGB//;/ })
 
 infoFG="255;255;255"
@@ -108,14 +112,12 @@ if [[ -n $SUDO_USER ]]; then
         sudoUser=" ($SUDO_USER)"
 fi
 
-# Set flag
-if [[ -n $FP_FLAGLEVEL && -n $FP_FLAGCAPTION ]]; then
-        flag=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION")
-fi
-
 # Construct the prompt with the background and foreground colors
-PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) ")'
-PS1='\n'"\[${trimCode}\]"'╭'"\[${ANSI_RESET}${infoCode}\]"' \u'"${sudoUser}"' on \H '"\[${ANSI_RESET}${gitCode}\]"'${PS1_CMD1}'"\[${ANSI_RESET}\]${flag}\[${workingDirCode}\]"' \w '"\[${ANSI_RESET}\]"'\n'"\[${trimCode}\]"'╰─┤'"\[${ANSI_RESET}\]"' \d \T '"\[${trimCode}\]"'│'"\[${ANSI_RESET}\]"' '
+# PS1_CMD1 (git status) and PS1_FLAG (alert flag) are updated each prompt draw.
+# FP_FLAGLEVEL and FP_FLAGCAPTION can be exported at any time to show/update the flag.
+# Append to PROMPT_COMMAND to preserve any existing hooks (conda, venv, direnv, etc.)
+PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) "); [[ -n ${FP_FLAGLEVEL:-} && -n ${FP_FLAGCAPTION:-} ]] && PS1_FLAG=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION") || PS1_FLAG=""'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+PS1='\n'"\[${trimCode}\]"'╭'"\[${ANSI_RESET}${infoCode}\]"' \u'"${sudoUser}"' on \H '"\[${ANSI_RESET}${gitCode}\]"'${PS1_CMD1}'"\[${ANSI_RESET}\]"'${PS1_FLAG}'"\[${workingDirCode}\]"' \w '"\[${ANSI_RESET}\]"'\n'"\[${trimCode}\]"'╰─┤'"\[${ANSI_RESET}\]"' \d \T '"\[${trimCode}\]"'│'"\[${ANSI_RESET}\]"' '
 
 # Export the modified PS1
 export PS1
