@@ -1,19 +1,26 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+DRY_RUN=false
+if [[ "${1:-}" == "--dry-run" ]]; then
+	DRY_RUN=true
+	shift
+fi
 
 fileMask="$1"
 sourceDirectory="$2"
-archiveDirectory="$(echo $3 | sed 's|/$||')"
+archiveDirectory="$(echo "$3" | sed 's|/$||')"
 
-# Find files ending with .m* and process them
 find "$sourceDirectory" -type f -name "$fileMask" | while read -r file; do
-  # Get the file creation date (year and month)
-  fileYear=$(date -r "$file" +"%Y")
-  fileMonth=$(date -r "$file" +"%m")
+	fileYear=$(date -r "$file" +"%Y")
+	fileMonth=$(date -r "$file" +"%m")
 
-  fileDestination="$archiveDirectory/$fileYear/$fileMonth"
-  mkdir -p "$fileDestination"
+	fileDestination="$archiveDirectory/$fileYear/$fileMonth"
 
-  # Move the file to the destination directory
-  mv "$file" "$fileDestination/"
-  echo "Moved $file to $fileDestination"
+	if $DRY_RUN; then
+		echo "[dry-run] Would move: $file -> $fileDestination/"
+	else
+		mkdir -p "$fileDestination"
+		mv "$file" "$fileDestination/"
+		echo "Moved $file to $fileDestination"
+	fi
 done
