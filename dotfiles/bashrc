@@ -183,6 +183,11 @@ if [ -d "$HOME/.bashrc.d/" ]; then
         unset file
 fi
 
+# Make sure our PATH is good for all the things
+if [[ -d "$HOME/.local/bin" ]] ; then
+        PATH="$HOME/.local/bin:$PATH"
+fi
+
 # Check filesystem usage
 if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
         diskThreshold=$(jq -r '.diskThreshold // 75' "$CONFIG_FILE")
