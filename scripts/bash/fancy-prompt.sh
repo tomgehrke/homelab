@@ -162,7 +162,8 @@ PROMPT_COMMAND='
     PS1_VENV=$(_fp_venv)
     PS1_JOBS=$(_fp_jobs)
     PS1_SSH=$(_fp_ssh)
-'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+'"${PROMPT_COMMAND:+
+$PROMPT_COMMAND}"
 
 # Layout:
 #   [⚑ FLAG BANNER if set]
