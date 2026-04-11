@@ -29,7 +29,7 @@ GIT_PS1_SHOWUPSTREAM=auto
 GIT_PS1_SHOWCONFLICTSTATE=yes
 
 # Alert flag rendered as a prominent banner above the main prompt line.
-# FP_FLAGLEVEL (1-5) and FP_FLAGCAPTION can be exported at any time.
+# FP_LEVEL (1-5) and FP_FLAG can be exported at any time.
 getFlag() {
     local level="$1" caption="$2"
     local r g b
@@ -157,7 +157,7 @@ PROMPT_COMMAND='
     else
         PS1_GIT_BLOCK="$_fp_noGitArrow"
     fi
-    [[ -n ${FP_FLAGLEVEL:-} && -n ${FP_FLAGCAPTION:-} ]] && PS1_FLAG=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION") || PS1_FLAG=""
+    [[ -n ${FP_LEVEL:-} && -n ${FP_FLAG:-} ]] && PS1_FLAG=$(getFlag "$FP_LEVEL" "$FP_FLAG") || PS1_FLAG=""
     PS1_EXIT=$(_fp_exit_code $_fp_ec)
     PS1_VENV=$(_fp_venv)
     PS1_JOBS=$(_fp_jobs)
