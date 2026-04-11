@@ -78,6 +78,23 @@ getLuminosity() {
     echo $(( (2126 * $1 + 7152 * $2 + 722 * $3) / 10000 ))
 }
 
+# Scale an "r;g;b" string so its brightest channel hits `target` (max 255).
+boostRGB() {
+    local rgb="$1" target="${2:-210}"
+    IFS=';' read -r r g b <<< "$rgb"
+    local max=$r
+    (( g > max )) && max=$g
+    (( b > max )) && max=$b
+    (( max == 0 )) && echo "${target};${target};${target}" && return
+    r=$(( r * target / max ))
+    g=$(( g * target / max ))
+    b=$(( b * target / max ))
+    (( r > 255 )) && r=255
+    (( g > 255 )) && g=255
+    (( b > 255 )) && b=255
+    echo "$r;$g;$b"
+}
+
 # --- Static palette computed once at source time ---
 
 _fp_host="${HOSTNAME:-$(hostname 2>/dev/null || echo "localhost")}"
@@ -109,8 +126,10 @@ _fp_noGitArrow=$(printf '\001\e[48;2;%s;38;2;%sm\002%s' \
 _fp_cHost="\e[48;2;${_fp_hostRGB};38;2;${_fp_hostFg}m"
 _fp_cDir="\e[48;2;${_fp_dirBg};38;2;${_fp_dirFg}m"
 _fp_cDirEnd="\e[0;38;2;${_fp_dirBg}m"   # reset → dir-bg fg for end-cap arrow
-_fp_cTrim="\e[38;2;${_fp_hostRGB}m"
-_fp_cAccent="\e[38;2;${_fp_gitBg}m"
+_fp_hostRGBBright=$(boostRGB "$_fp_hostRGB" 210)
+_fp_gitBgBright=$(boostRGB "$_fp_gitBg" 185)
+_fp_cTrim="\e[38;2;${_fp_hostRGBBright}m"
+_fp_cAccent="\e[38;2;${_fp_gitBgBright}m"
 
 [[ -n ${SUDO_USER:-} ]] && _fp_sudo=" ($SUDO_USER)" || _fp_sudo=""
 
