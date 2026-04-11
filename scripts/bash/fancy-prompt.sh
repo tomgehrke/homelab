@@ -4,6 +4,7 @@
 # fancy-prompt.sh
 #
 # Makes your bash prompt fancy!
+# Requires a Nerd Font or Powerline-patched font for segment arrows.
 #
 # NOTE: If colors seem off or adjacent characters don't blend
 #       when they should, check your terminal to see if any
@@ -12,12 +13,8 @@
 #       in certain cases.
 # ==============================================================
 
-ANSI_START="\e["
-ANSI_FG="38;2;"
-ANSI_BG="48;2;"
-ANSI_END="m"
-ANSI_BOLD="\e[1m"
-ANSI_RESET="\e[0m"
+# Powerline glyph — requires Nerd Font / Powerline-patched font
+PL_R=$'\ue0b0'   #  solid right-pointing arrow
 
 # Git support — degrade gracefully if .git-prompt is not yet linked
 if [[ -f ~/.git-prompt ]]; then
@@ -31,49 +28,45 @@ GIT_PS1_SHOWUNTRACKEDFILES=yes
 GIT_PS1_SHOWUPSTREAM=auto
 GIT_PS1_SHOWCONFLICTSTATE=yes
 
+# Alert flag rendered as a prominent banner above the main prompt line.
+# FP_FLAGLEVEL (1-5) and FP_FLAGCAPTION can be exported at any time.
 getFlag() {
-    local level="$1"
-    local caption="$2"
+    local level="$1" caption="$2"
+    local r g b
 
-    # Manually map background colors to their closest ANSI 256 equivalents
     case "$level" in
-        1) bgColor="48;5;196"; trimColor="38;5;196"; fgColor="38;5;226" ;;
-        2) bgColor="48;5;202"; trimColor="38;5;202"; fgColor="38;5;16" ;;
-        3) bgColor="48;5;226"; trimColor="38;5;226"; fgColor="38;5;16" ;;
-        4) bgColor="48;5;44";  trimColor="38;5;44"; fgColor="38;5;16" ;;
-        5) bgColor="48;5;33";  trimColor="38;5;33"; fgColor="38;5;16" ;;
-        *) echo "Invalid level"; return 1 ;;
+        1) r=200; g=0;   b=0   ;;   # Red
+        2) r=210; g=90;  b=0   ;;   # Orange
+        3) r=190; g=180; b=0   ;;   # Yellow
+        4) r=0;   g=170; b=170 ;;   # Cyan
+        5) r=0;   g=70;  b=190 ;;   # Blue
+        *) return 1 ;;
     esac
 
-    # Print the caption with background color
-    echo -e "\e[${bgColor};${fgColor}m ${caption} \e[0m\e[48;5;16;${trimColor}m\e[0m"
+    local lum=$(( (2126 * r + 7152 * g + 722 * b) / 10000 ))
+    local fg="0;0;0"
+    (( lum < 100 )) && fg="255;255;255"
+
+    printf '\n\001\e[1;48;2;%d;%d;%d;38;2;%sm\002 ⚑ %s \001\e[0m\002' \
+        "$r" "$g" "$b" "$fg" "$caption"
 }
 
 getRGBValue() {
-    local input="$1"
-    local length=${#input}
-    local lowerThreshold=32
+    local input="$1" length lowerThreshold=60 r=0 g=0 b=0
+    length=${#input}
 
-    # If the string is empty, return a default color
-    if [ "$length" -eq 0 ]; then
-        echo "$lowerThreshold;$lowerThreshold;$lowerThreshold"  # Black
+    if (( length == 0 )); then
+        echo "${lowerThreshold};${lowerThreshold};${lowerThreshold}"
         return
     fi
 
-    # Initialize RGB values
-    local r=0
-    local g=0
-    local b=0
-
-    # Iterate over characters and accumulate RGB values
     for (( i=0; i<length; i++ )); do
-        local char_value=$(printf "%d" "'${input:i:1}")  # ASCII value
-        r=$(( (r + char_value) % 240 ))  # Red component
-        g=$(( (g + char_value * 2) % 240 ))  # Green component
-        b=$(( (b + char_value * 3) % 240 ))  # Blue component
+        local cv=$(printf "%d" "'${input:i:1}")
+        r=$(( (r + cv)     % 200 ))
+        g=$(( (g + cv * 2) % 200 ))
+        b=$(( (b + cv * 3) % 200 ))
     done
 
-    # Never less than our lower threshold
     (( r < lowerThreshold )) && (( r += lowerThreshold ))
     (( g < lowerThreshold )) && (( g += lowerThreshold ))
     (( b < lowerThreshold )) && (( b += lowerThreshold ))
@@ -82,42 +75,99 @@ getRGBValue() {
 }
 
 getLuminosity() {
-    local r=$1 g=$2 b=$3
-    local luminosity
-
-    # Scale relative luminance (0.2126R + 0.7152G + 0.0722B) to 0-255 range
-    luminosity=$(( (2126 * r + 7152 * g + 722 * b) / 10000 ))
-
-    echo "$luminosity"
+    echo $(( (2126 * $1 + 7152 * $2 + 722 * $3) / 10000 ))
 }
 
-# Get the hostname
-host="${HOSTNAME:-$(hostname 2>/dev/null || echo "localhost")}"
-hostRGB=$(getRGBValue "$host")
-luminosity=$(getLuminosity ${hostRGB//;/ })
+# --- Static palette computed once at source time ---
 
-infoFG="255;255;255"
-if (( luminosity > 128 )); then
-    infoFG="0;0;0"
-fi
+_fp_host="${HOSTNAME:-$(hostname 2>/dev/null || echo "localhost")}"
+_fp_hostRGB=$(getRGBValue "$_fp_host")
+_fp_lum=$(getLuminosity ${_fp_hostRGB//;/ })
 
-# Set the background and trim color based on RGB values
-infoCode="${ANSI_START}${ANSI_BG}$hostRGB;${ANSI_FG}$infoFG${ANSI_END}"
-trimCode="${ANSI_START}${ANSI_FG}$hostRGB${ANSI_END}"
-gitCode="${ANSI_START}${ANSI_BG}0;0;255;${ANSI_FG}255;255;0${ANSI_END}"
-workingDirCode="${ANSI_START}${ANSI_BG}0;0;0;${ANSI_FG}255;255;255${ANSI_END}"
+_fp_hostFg="255;255;255"
+(( _fp_lum > 128 )) && _fp_hostFg="0;0;0"
 
-# Add sudo user
-if [[ -n $SUDO_USER ]]; then
-        sudoUser=" ($SUDO_USER)"
-fi
+_fp_gitBg="20;30;130"
+_fp_gitFg="255;220;50"
+_fp_dirBg="22;22;22"
+_fp_dirFg="210;210;210"
 
-# Construct the prompt with the background and foreground colors
-# PS1_CMD1 (git status) and PS1_FLAG (alert flag) are updated each prompt draw.
-# FP_FLAGLEVEL and FP_FLAGCAPTION can be exported at any time to show/update the flag.
+# Transition blocks with \001/\002 (SOH/STX) for correct cursor-width tracking
+# in variables set by PROMPT_COMMAND.
+#
+#   _fp_gitBlock    : host→git arrow + git segment start
+#   _fp_gitBlockEnd : git→dir arrow (when git segment is present)
+#   _fp_noGitArrow  : host→dir arrow (when not in a git repo)
+_fp_gitBlock=$(printf '\001\e[48;2;%s;38;2;%sm\002%s\001\e[48;2;%s;38;2;%sm\002' \
+    "$_fp_gitBg" "$_fp_hostRGB" "$PL_R" "$_fp_gitBg" "$_fp_gitFg")
+_fp_gitBlockEnd=$(printf '\001\e[48;2;%s;38;2;%sm\002%s' \
+    "$_fp_dirBg" "$_fp_gitBg" "$PL_R")
+_fp_noGitArrow=$(printf '\001\e[48;2;%s;38;2;%sm\002%s' \
+    "$_fp_dirBg" "$_fp_hostRGB" "$PL_R")
+
+# Static ANSI codes for the PS1 literal (wrapped with \[\] in PS1)
+_fp_cHost="\e[48;2;${_fp_hostRGB};38;2;${_fp_hostFg}m"
+_fp_cDir="\e[48;2;${_fp_dirBg};38;2;${_fp_dirFg}m"
+_fp_cDirEnd="\e[0;38;2;${_fp_dirBg}m"   # reset → dir-bg fg for end-cap arrow
+_fp_cTrim="\e[38;2;${_fp_hostRGB}m"
+_fp_cAccent="\e[38;2;${_fp_gitBg}m"
+
+[[ -n ${SUDO_USER:-} ]] && _fp_sudo=" ($SUDO_USER)" || _fp_sudo=""
+
+# --- Dynamic indicator functions (called each prompt draw) ---
+
+_fp_venv() {
+    local name=""
+    if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+        name="$(basename "$VIRTUAL_ENV")"
+    elif [[ -n "${CONDA_DEFAULT_ENV:-}" && "${CONDA_DEFAULT_ENV}" != "base" ]]; then
+        name="$CONDA_DEFAULT_ENV"
+    fi
+    [[ -n "$name" ]] && printf '\001\e[38;2;80;200;100m\002(%.15s)\001\e[0m\002 ' "$name"
+}
+
+_fp_exit_code() {
+    if [[ $1 -eq 0 ]]; then
+        printf '\001\e[38;2;80;210;80m\002✓\001\e[0m\002 '
+    else
+        printf '\001\e[1;38;2;255;80;80m\002✗ %d\001\e[0m\002 ' "$1"
+    fi
+}
+
+_fp_jobs() {
+    local n
+    n=$(jobs -p 2>/dev/null | wc -l)
+    (( n > 0 )) && printf '\001\e[38;2;220;180;50m\002[%d&]\001\e[0m\002 ' "$n"
+}
+
+_fp_ssh() {
+    [[ -n "${SSH_CLIENT:-}" || -n "${SSH_TTY:-}" ]] && \
+        printf '\001\e[38;2;130;190;255m\002[ssh]\001\e[0m\002 '
+}
+
+# PS1_GIT_BLOCK adapts: full git segment with arrows when in a repo,
+# single host→dir arrow when not.
+# PS1_EXIT, PS1_SSH, PS1_VENV, PS1_JOBS update each draw.
 # Append to PROMPT_COMMAND to preserve any existing hooks (conda, venv, direnv, etc.)
-PROMPT_COMMAND='PS1_CMD1=$(__git_ps1 " (%s) "); [[ -n ${FP_FLAGLEVEL:-} && -n ${FP_FLAGCAPTION:-} ]] && PS1_FLAG=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION") || PS1_FLAG=""'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
-PS1='\n'"\[${ANSI_RESET}${infoCode}\]"' \u'"${sudoUser}"' on \H '"\[${ANSI_RESET}${gitCode}\]"'${PS1_CMD1}'"\[${ANSI_RESET}\]"'${PS1_FLAG}'"\[${workingDirCode}\]"' \w '"\[${ANSI_RESET}\]"'\n'"\[${trimCode}\]"'▌'"\[${ANSI_RESET}\]"' \d \T '"\[${trimCode}\]"'»'"\[${ANSI_RESET}\]"' '
+PROMPT_COMMAND='
+    _fp_ec=$?
+    PS1_CMD1=$(__git_ps1 " %s ")
+    if [[ -n "$PS1_CMD1" ]]; then
+        PS1_GIT_BLOCK="${_fp_gitBlock}${PS1_CMD1}${_fp_gitBlockEnd}"
+    else
+        PS1_GIT_BLOCK="$_fp_noGitArrow"
+    fi
+    [[ -n ${FP_FLAGLEVEL:-} && -n ${FP_FLAGCAPTION:-} ]] && PS1_FLAG=$(getFlag "$FP_FLAGLEVEL" "$FP_FLAGCAPTION") || PS1_FLAG=""
+    PS1_EXIT=$(_fp_exit_code $_fp_ec)
+    PS1_VENV=$(_fp_venv)
+    PS1_JOBS=$(_fp_jobs)
+    PS1_SSH=$(_fp_ssh)
+'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 
-# Export the modified PS1
+# Layout:
+#   [⚑ FLAG BANNER if set]
+#   [user on host ][▶][git branch ][▶][ working/dir ][▶]
+#   ✓/✗  [ssh] [venv] [jobs] date time ❯
+PS1='${PS1_FLAG}''\n'"\[\e[0m${_fp_cHost}\] \u${_fp_sudo} on \H "'${PS1_GIT_BLOCK}'"\[${_fp_cDir}\] \w \[${_fp_cDirEnd}\]${PL_R}\[\e[0m\]"'\n''${PS1_EXIT}${PS1_SSH}${PS1_VENV}${PS1_JOBS}'"\[${_fp_cTrim}\]\d \T \[${_fp_cAccent}\]❯\[\e[0m\] "
+
 export PS1
