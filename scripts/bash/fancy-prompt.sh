@@ -47,8 +47,8 @@ getFlag() {
     local fg="0;0;0"
     (( lum < 100 )) && fg="255;255;255"
 
-    printf '\n\001\e[1;48;2;%d;%d;%d;38;2;%sm\002 ⚑ %s \001\e[0m\002' \
-        "$r" "$g" "$b" "$fg" "$caption"
+    printf '\001\e[1;48;2;%d;%d;%d;38;2;%sm\002 ⚑ %s \001\e[0;48;2;%s;38;2;%d;%d;%dm\002%s\001\e[0m\002' \
+        "$r" "$g" "$b" "$fg" "$caption" "$_fp_hostRGB" "$r" "$g" "$b" "$PL_R"
 }
 
 getRGBValue() {
@@ -185,9 +185,8 @@ PROMPT_COMMAND='
 $PROMPT_COMMAND}"
 
 # Layout:
-#   [⚑ FLAG BANNER if set]
-#   [user on host ][▶][git branch ][▶][ working/dir ][▶]
+#   [⚑ FLAG if set]  [user on host ][▶][git branch ][▶][ working/dir ][▶]
 #   ✓/✗  [ssh] [venv] [jobs] date time ❯
-PS1='${PS1_FLAG}''\n'"\[\e[0m${_fp_cHost}\] \u${_fp_sudo} on \H "'${PS1_GIT_BLOCK}'"\[${_fp_cDir}\] \w \[${_fp_cDirEnd}\]${PL_R}\[\e[0m\]"'\n''${PS1_EXIT}${PS1_SSH}${PS1_VENV}${PS1_JOBS}'"\[${_fp_cTrim}\]\d \T \[${_fp_cAccent}\]❯\[\e[0m\] "
+PS1='\n''${PS1_FLAG}'"\[\e[0m${_fp_cHost}\] \u${_fp_sudo} on \H "'${PS1_GIT_BLOCK}'"\[${_fp_cDir}\] \w \[${_fp_cDirEnd}\]${PL_R}\[\e[0m\]"'\n''${PS1_EXIT}${PS1_SSH}${PS1_VENV}${PS1_JOBS}'"\[${_fp_cTrim}\]\d \T \[${_fp_cAccent}\]❯\[\e[0m\] "
 
 export PS1
