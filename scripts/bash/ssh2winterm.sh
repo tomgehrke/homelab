@@ -338,23 +338,28 @@ update_new_tab_menu() {
     # This lets WT resolve profiles by their fragment origin rather than by explicit
     # GUIDs, which may differ from what WT internally assigns to fragment profiles.
     # With --group-by-prefix, sub-group names are derived from the group field.
+    # Simple flat folder using matchProfiles — always works since WT resolves
+    # fragment profiles by their source (the fragment folder name).
+    local flat_folder_entry
+    flat_folder_entry="$(jq -n \
+        --arg name "$FRAGMENT_NAME" \
+        --arg icon "$ICON_DEFAULT" \
+        '{
+            "type": "folder",
+            "name": $name,
+            "icon": $icon,
+            "entries": [{"type": "matchProfiles", "source": $name}]
+        }'
+    )"
+
     local folder_entry
     if [[ "$GROUP_BY_PREFIX" == false ]]; then
-        folder_entry="$(jq -n \
-            --arg name "$FRAGMENT_NAME" \
-            --arg icon "$ICON_DEFAULT" \
-            '{
-                "type": "folder",
-                "name": $name,
-                "icon": $icon,
-                "entries": [{"type": "matchProfiles", "source": $name}]
-            }'
-        )"
+        folder_entry="$flat_folder_entry"
     else
         # Direct profiles (no sub-group) listed individually; prefixed profiles
         # grouped into sub-folders. No matchProfiles catch-all — that would
         # duplicate every profile above the sub-folders.
-        folder_entry="$(echo "$profiles_json" | jq \
+        folder_entry="$(printf '%s' "$profiles_json" | jq \
             --arg name "$FRAGMENT_NAME" \
             --arg icon "$ICON_DEFAULT" \
             '
@@ -374,13 +379,40 @@ update_new_tab_menu() {
                     }))
                 )
             }
-            '
+            ' 2>/dev/null
         )"
+        if [[ -z "$folder_entry" ]]; then
+            echo "Warning: Could not build grouped newTabMenu entry; falling back to flat folder." >&2
+            folder_entry="$flat_folder_entry"
+        fi
+    fi
+
+    echo "Settings.json path: ${settings_file}" >&2
+    echo "newTabMenu folder entry to be written:" >&2
+    echo "$folder_entry" | jq '.' >&2
+
+    # settings.json is JSONC — strip // and /* */ comments before jq can parse it.
+    local clean_json
+    clean_json="$(python3 - "$settings_file" << 'PYEOF'
+import sys, re
+txt = open(sys.argv[1], encoding='utf-8').read()
+# Remove // comments but leave // inside quoted strings untouched
+txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
+# Remove /* */ block comments
+txt = re.sub(r'/\*.*?\*/', '', txt, flags=re.DOTALL)
+print(txt)
+PYEOF
+    )"
+
+    if [[ -z "$clean_json" ]]; then
+        echo "Warning: Could not parse settings.json; add newTabMenu entry manually." >&2
+        return
     fi
 
     local tmpfile
     tmpfile="$(mktemp)"
-    if jq --argjson folder "$folder_entry" --arg fname "$FRAGMENT_NAME" '
+    local jq_err
+    if printf '%s\n' "$clean_json" | jq --argjson folder "$folder_entry" --arg fname "$FRAGMENT_NAME" '
         (.newTabMenu // [{"type": "remainingProfiles"}]) as $existing |
         (if ($existing | any(.[]; .type == "remainingProfiles"))
          then $existing
@@ -389,11 +421,15 @@ update_new_tab_menu() {
             ($with_remaining | map(select(.type != "folder" or .name != $fname))) +
             [$folder]
         )
-    ' "$settings_file" > "$tmpfile" && mv "$tmpfile" "$settings_file"; then
+    ' > "$tmpfile" 2>/tmp/ssh2winterm_jq_err && mv "$tmpfile" "$settings_file"; then
         echo "Updated newTabMenu (${FRAGMENT_NAME} folder) in: ${settings_file}" >&2
     else
-        rm -f "$tmpfile"
+        jq_err="$(cat /tmp/ssh2winterm_jq_err 2>/dev/null)"
+        rm -f "$tmpfile" /tmp/ssh2winterm_jq_err
         echo "Warning: Failed to update newTabMenu in settings.json." >&2
+        [[ -n "$jq_err" ]] && echo "  jq error: ${jq_err}" >&2
+        echo "  Add this entry manually to your newTabMenu in settings.json:" >&2
+        echo "$folder_entry" | jq '.' >&2
     fi
 }
 
