@@ -224,23 +224,41 @@ build_profiles_json() {
     local name hostname user port proxyjump
     local display_name group guid tab_title details profile_obj
 
+    # Pre-pass: count how many SSH aliases would strip to the same display name.
+    # If two hosts share a stripped name (e.g. prd-web and dev-web both → "web"),
+    # they'd get identical GUIDs since WT derives GUID from the profile name field.
+    # Keep the full alias for any colliding host so each GUID stays unique.
+    declare -A _dn_count=()
+    while IFS='|' read -r name _ _ _ _; do
+        [[ -z "$name" ]] && continue
+        local _dn="$name"
+        if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
+            _dn="${name#*-}"
+        fi
+        _dn_count["$_dn"]=$(( ${_dn_count["$_dn"]:-0} + 1 ))
+    done <<< "$hosts_tsv"
+
     while IFS='|' read -r name hostname user port proxyjump; do
         [[ -z "$name" ]] && continue
 
         # Display name and optional folder group.
-        # With --group-by-prefix the prefix segment is stripped from the display
-        # name so "prd-server01" shows as "server01" inside the "prd" folder.
-        # The GUID is always derived from the SSH alias (unique across all hosts)
-        # so GUIDs remain stable and don't collide when display names overlap
-        # across groups (e.g. prd/server01 vs dev/server01).
+        # With --group-by-prefix, strip the prefix segment so "prd-server01"
+        # shows as "server01" inside the "prd" folder — unless stripping would
+        # produce a name shared by another host (collision), in which case the
+        # full alias is kept so GUIDs remain unique.
+        # GUID is derived from display_name so it matches what WT computes
+        # from the profile name field.
         display_name="$name"
         group="$FRAGMENT_NAME"
         if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
+            local _candidate="${name#*-}"
             group="${FRAGMENT_NAME}/${name%%-*}"
-            display_name="${name#*-}"
+            if [[ "${_dn_count[$_candidate]:-0}" -le 1 ]]; then
+                display_name="$_candidate"
+            fi
         fi
 
-        guid="$(generate_guid "$FRAGMENT_NAME" "$name")"
+        guid="$(generate_guid "$FRAGMENT_NAME" "$display_name")"
 
         # Build SSH command, incorporating user if specified in config
         local ssh_cmd="ssh $name"
@@ -386,11 +404,11 @@ update_new_tab_menu() {
                 "name": $name,
                 "icon": $icon,
                 "entries": (
-                    ($direct | map({"type": "profile", "profile": .guid})) +
+                    ($direct | map({"type": "profile", "profile": .name})) +
                     ($subgroups | map({
                         "type": "folder",
                         "name": (.[0].group | split("/")[1]),
-                        "entries": [.[] | {"type": "profile", "profile": .guid}]
+                        "entries": [.[] | {"type": "profile", "profile": .name}]
                     }))
                 )
             }
@@ -542,6 +560,18 @@ else
     fragment_dir="$(resolve_fragment_dir)"
     mkdir -p "$fragment_dir"
     fragment_path="${fragment_dir}/profiles.json"
+
+    # Warn if other fragment directories exist alongside ours — stale dirs from
+    # previous runs with a different --name will still show up in Windows Terminal
+    # and must be deleted manually.
+    local fragments_parent="${fragment_dir%/*}"
+    if [[ -d "$fragments_parent" ]]; then
+        while IFS= read -r -d '' stale_dir; do
+            [[ "$(basename "$stale_dir")" == "$FRAGMENT_NAME" ]] && continue
+            echo "Warning: stale fragment directory found: ${stale_dir}" >&2
+            echo "  Windows Terminal will keep showing its profiles until you delete it." >&2
+        done < <(find "$fragments_parent" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+    fi
 
     # Capture old GUIDs before overwriting so we can remove stale settings.json entries.
     old_guids_json="[]"
