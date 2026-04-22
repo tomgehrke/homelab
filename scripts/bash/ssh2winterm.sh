@@ -242,9 +242,10 @@ build_profiles_json() {
     done <<< "$hosts_tsv"
 
     local _changed=true
+    declare -A _freq=()
     while [[ "$_changed" == true ]]; do
         _changed=false
-        declare -A _freq=()
+        unset _freq; declare -A _freq
         for k in "${!_final_dn[@]}"; do
             v="${_final_dn[$k]}"
             _freq["$v"]=$(( ${_freq["$v"]:-0} + 1 ))
@@ -257,6 +258,25 @@ build_profiles_json() {
             fi
         done
     done
+
+    # Sanity check: after iteration, no two aliases should share a display name.
+    # If any remain, report them explicitly so the SSH config can be fixed.
+    local _dup_found=false
+    for k in "${!_final_dn[@]}"; do
+        v="${_final_dn[$k]}"
+        if [[ "${_freq[$v]:-0}" -gt 1 ]]; then
+            if [[ "$_dup_found" == false ]]; then
+                echo "Error: duplicate display names remain after collision resolution:" >&2
+                _dup_found=true
+            fi
+            echo "  display='$v'  alias='$k'" >&2
+        fi
+    done
+    if [[ "$_dup_found" == true ]]; then
+        echo "  → Two SSH aliases resolve to the same profile name → same GUID → WT error." >&2
+        echo "  → Rename one of the conflicting aliases in your SSH config." >&2
+        return 1
+    fi
 
     while IFS='|' read -r name hostname user port proxyjump; do
         [[ -z "$name" ]] && continue
