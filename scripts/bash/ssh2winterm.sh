@@ -378,9 +378,27 @@ update_new_tab_menu() {
         )"
     fi
 
+    # settings.json is JSONC — strip // and /* */ comments before jq can parse it.
+    local clean_json
+    clean_json="$(python3 - "$settings_file" << 'PYEOF'
+import sys, re
+txt = open(sys.argv[1], encoding='utf-8').read()
+# Remove // comments but leave // inside quoted strings untouched
+txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
+# Remove /* */ block comments
+txt = re.sub(r'/\*.*?\*/', '', txt, flags=re.DOTALL)
+print(txt)
+PYEOF
+    )"
+
+    if [[ -z "$clean_json" ]]; then
+        echo "Warning: Could not parse settings.json; add newTabMenu entry manually." >&2
+        return
+    fi
+
     local tmpfile
     tmpfile="$(mktemp)"
-    if jq --argjson folder "$folder_entry" --arg fname "$FRAGMENT_NAME" '
+    if echo "$clean_json" | jq --argjson folder "$folder_entry" --arg fname "$FRAGMENT_NAME" '
         (.newTabMenu // [{"type": "remainingProfiles"}]) as $existing |
         (if ($existing | any(.[]; .type == "remainingProfiles"))
          then $existing
@@ -389,7 +407,7 @@ update_new_tab_menu() {
             ($with_remaining | map(select(.type != "folder" or .name != $fname))) +
             [$folder]
         )
-    ' "$settings_file" > "$tmpfile" && mv "$tmpfile" "$settings_file"; then
+    ' > "$tmpfile" && mv "$tmpfile" "$settings_file"; then
         echo "Updated newTabMenu (${FRAGMENT_NAME} folder) in: ${settings_file}" >&2
     else
         rm -f "$tmpfile"
