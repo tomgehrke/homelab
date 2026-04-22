@@ -232,7 +232,6 @@ build_profiles_json() {
         group="$FRAGMENT_NAME"
         if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
             group="${FRAGMENT_NAME}/${name%%-*}"
-            display_name="${name#*-}"
         fi
 
         # Generate deterministic GUID
@@ -371,7 +370,7 @@ update_new_tab_menu() {
                     ($subgroups | map({
                         "type": "folder",
                         "name": (.[0].group | split("/")[1]),
-                        "entries": [.[] | {"type": "profile", "profile": .guid}]
+                        "entries": [.[] | {"type": "profile", "profile": .name}]
                     }))
                 )
             }
