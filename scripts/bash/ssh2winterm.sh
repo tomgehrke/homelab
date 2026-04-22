@@ -222,19 +222,24 @@ build_profiles_json() {
     local hosts_tsv="$1"
     local profiles_json="[]"
     local name hostname user port proxyjump
-    local display_name group rest guid tab_title details profile_obj
+    local display_name group guid tab_title details profile_obj
 
     while IFS='|' read -r name hostname user port proxyjump; do
         [[ -z "$name" ]] && continue
 
-        # Display name and optional folder group
+        # Display name and optional folder group.
+        # With --group-by-prefix the prefix segment is stripped from the display
+        # name so "prd-server01" shows as "server01" inside the "prd" folder.
+        # The GUID is always derived from the SSH alias (unique across all hosts)
+        # so GUIDs remain stable and don't collide when display names overlap
+        # across groups (e.g. prd/server01 vs dev/server01).
         display_name="$name"
         group="$FRAGMENT_NAME"
         if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
             group="${FRAGMENT_NAME}/${name%%-*}"
+            display_name="${name#*-}"
         fi
 
-        # Generate deterministic GUID
         guid="$(generate_guid "$FRAGMENT_NAME" "$name")"
 
         # Build SSH command, incorporating user if specified in config
@@ -272,13 +277,13 @@ build_profiles_json() {
             '
         )"
 
-        profiles_json="$(echo "$profiles_json" | jq --argjson p "$profile_obj" '. + [$p]')"
+        profiles_json="$(printf '%s' "$profiles_json" | jq --argjson p "$profile_obj" '. + [$p]')"
 
     done <<< "$hosts_tsv"
 
     # group is retained here for update_new_tab_menu to build sub-folder structure
     # but is stripped from the fragment file itself before writing (see main).
-    echo "$profiles_json" | jq '{profiles: sort_by(.name)}'
+    printf '%s' "$profiles_json" | jq '{profiles: sort_by(.name)}'
 }
 
 # Resolve output path ──────────────────────────────────────────────────────
@@ -321,9 +326,23 @@ resolve_settings_json() {
     echo ""
 }
 
-# Writes (or replaces) our folder entry in settings.json's newTabMenu, using
-# matchProfiles by source so WT resolves profiles by fragment origin rather than
-# by GUID. Preserves any other newTabMenu entries the user has configured.
+# Strip JSONC comments from a file and print clean JSON to stdout.
+strip_jsonc() {
+    python3 - "$1" << 'PYEOF'
+import sys, re
+txt = open(sys.argv[1], encoding='utf-8').read()
+# Remove // line comments but leave // inside quoted strings untouched
+txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
+# Remove /* */ block comments
+txt = re.sub(r'/\*.*?\*/', '', txt, flags=re.DOTALL)
+print(txt)
+PYEOF
+}
+
+# Writes (or replaces) our folder entry in settings.json's newTabMenu.
+# Preserves any other newTabMenu entries the user has configured.
+# With --group-by-prefix, builds nested sub-folders and references profiles
+# by GUID (not name) so duplicate display names across groups don't collide.
 update_new_tab_menu() {
     local profiles_json="$1"
     local settings_file
@@ -334,12 +353,7 @@ update_new_tab_menu() {
         return
     fi
 
-    # Build the folder entry using matchProfiles by source (the fragment folder name).
-    # This lets WT resolve profiles by their fragment origin rather than by explicit
-    # GUIDs, which may differ from what WT internally assigns to fragment profiles.
-    # With --group-by-prefix, sub-group names are derived from the group field.
-    # Simple flat folder using matchProfiles — always works since WT resolves
-    # fragment profiles by their source (the fragment folder name).
+    # Flat folder using matchProfiles — used when --group-by-prefix is off.
     local flat_folder_entry
     flat_folder_entry="$(jq -n \
         --arg name "$FRAGMENT_NAME" \
@@ -357,8 +371,9 @@ update_new_tab_menu() {
         folder_entry="$flat_folder_entry"
     else
         # Direct profiles (no sub-group) listed individually; prefixed profiles
-        # grouped into sub-folders. No matchProfiles catch-all — that would
-        # duplicate every profile above the sub-folders.
+        # grouped into sub-folders. Reference by GUID so identical display names
+        # across different groups (e.g. prd/server01 vs dev/server01) don't
+        # resolve ambiguously.
         folder_entry="$(printf '%s' "$profiles_json" | jq \
             --arg name "$FRAGMENT_NAME" \
             --arg icon "$ICON_DEFAULT" \
@@ -371,11 +386,11 @@ update_new_tab_menu() {
                 "name": $name,
                 "icon": $icon,
                 "entries": (
-                    ($direct | map({"type": "profile", "profile": .name})) +
+                    ($direct | map({"type": "profile", "profile": .guid})) +
                     ($subgroups | map({
                         "type": "folder",
                         "name": (.[0].group | split("/")[1]),
-                        "entries": [.[] | {"type": "profile", "profile": .name}]
+                        "entries": [.[] | {"type": "profile", "profile": .guid}]
                     }))
                 )
             }
@@ -387,22 +402,8 @@ update_new_tab_menu() {
         fi
     fi
 
-    echo "Settings.json path: ${settings_file}" >&2
-    echo "newTabMenu folder entry to be written:" >&2
-    echo "$folder_entry" | jq '.' >&2
-
-    # settings.json is JSONC — strip // and /* */ comments before jq can parse it.
     local clean_json
-    clean_json="$(python3 - "$settings_file" << 'PYEOF'
-import sys, re
-txt = open(sys.argv[1], encoding='utf-8').read()
-# Remove // comments but leave // inside quoted strings untouched
-txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
-# Remove /* */ block comments
-txt = re.sub(r'/\*.*?\*/', '', txt, flags=re.DOTALL)
-print(txt)
-PYEOF
-    )"
+    clean_json="$(strip_jsonc "$settings_file")"
 
     if [[ -z "$clean_json" ]]; then
         echo "Warning: Could not parse settings.json; add newTabMenu entry manually." >&2
@@ -411,7 +412,6 @@ PYEOF
 
     local tmpfile
     tmpfile="$(mktemp)"
-    local jq_err
     if printf '%s\n' "$clean_json" | jq --argjson folder "$folder_entry" --arg fname "$FRAGMENT_NAME" '
         (.newTabMenu // [{"type": "remainingProfiles"}]) as $existing |
         (if ($existing | any(.[]; .type == "remainingProfiles"))
@@ -424,12 +424,13 @@ PYEOF
     ' > "$tmpfile" 2>/tmp/ssh2winterm_jq_err && mv "$tmpfile" "$settings_file"; then
         echo "Updated newTabMenu (${FRAGMENT_NAME} folder) in: ${settings_file}" >&2
     else
+        local jq_err
         jq_err="$(cat /tmp/ssh2winterm_jq_err 2>/dev/null)"
         rm -f "$tmpfile" /tmp/ssh2winterm_jq_err
         echo "Warning: Failed to update newTabMenu in settings.json." >&2
         [[ -n "$jq_err" ]] && echo "  jq error: ${jq_err}" >&2
         echo "  Add this entry manually to your newTabMenu in settings.json:" >&2
-        echo "$folder_entry" | jq '.' >&2
+        printf '%s' "$folder_entry" | jq '.' >&2
     fi
 }
 
@@ -443,17 +444,21 @@ unhide_fragment_profiles() {
     settings_file="$(resolve_settings_json)"
     [[ -z "$settings_file" ]] && return
 
+    local clean_json
+    clean_json="$(strip_jsonc "$settings_file")"
+    [[ -z "$clean_json" ]] && return
+
     local hidden_count
-    hidden_count="$(jq --argjson guids "$guids_json" '
+    hidden_count="$(printf '%s' "$clean_json" | jq --argjson guids "$guids_json" '
         [(.profiles.list // [])[] |
          select(.hidden == true and (.guid as $g | $guids | index($g)) != null)] | length
-    ' "$settings_file")"
+    ')"
 
     [[ "$hidden_count" -eq 0 ]] && return
 
     local tmpfile
     tmpfile="$(mktemp)"
-    if jq --argjson guids "$guids_json" '
+    if printf '%s\n' "$clean_json" | jq --argjson guids "$guids_json" '
         if .profiles.list? then
             .profiles.list |= map(
                 if (.hidden == true and (.guid as $g | $guids | index($g)) != null)
@@ -461,11 +466,52 @@ unhide_fragment_profiles() {
                 else . end
             )
         else . end
-    ' "$settings_file" > "$tmpfile" && mv "$tmpfile" "$settings_file"; then
+    ' > "$tmpfile" && mv "$tmpfile" "$settings_file"; then
         echo "Unhid ${hidden_count} fragment profile(s) in: ${settings_file}" >&2
     else
         rm -f "$tmpfile"
         echo "Warning: Failed to unhide profiles in settings.json." >&2
+    fi
+}
+
+# Remove profile overrides in settings.json whose GUIDs were in the old fragment
+# but are absent from the new one. This cleans up warning triangles that appear
+# when hosts are renamed or removed.
+cleanup_stale_profiles() {
+    local old_guids_json="$1"
+    local new_guids_json="$2"
+    local settings_file
+    settings_file="$(resolve_settings_json)"
+    [[ -z "$settings_file" ]] && return
+
+    local stale_count
+    stale_count="$(jq -n \
+        --argjson old "$old_guids_json" \
+        --argjson new "$new_guids_json" \
+        '($old | map(select(. as $g | ($new | index($g)) == null))) | length'
+    )"
+
+    [[ "$stale_count" -eq 0 ]] && return
+
+    local clean_json
+    clean_json="$(strip_jsonc "$settings_file")"
+    [[ -z "$clean_json" ]] && return
+
+    local tmpfile
+    tmpfile="$(mktemp)"
+    if printf '%s\n' "$clean_json" | jq \
+        --argjson old "$old_guids_json" \
+        --argjson new "$new_guids_json" \
+        '
+        ($old | map(select(. as $g | ($new | index($g)) == null))) as $stale |
+        if .profiles.list? then
+            .profiles.list |= map(select(.guid as $g | ($stale | index($g)) == null))
+        else . end
+        ' > "$tmpfile" && mv "$tmpfile" "$settings_file"; then
+        echo "Removed ${stale_count} stale profile override(s) from: ${settings_file}" >&2
+    else
+        rm -f "$tmpfile"
+        echo "Warning: Failed to clean up stale profiles from settings.json." >&2
     fi
 }
 
@@ -491,21 +537,27 @@ if [[ "$DRY_RUN" == true ]]; then
     echo "" >&2
     echo "--- Fragment JSON (dry run) ---" >&2
     # Strip group before display: it's WT metadata used only for newTabMenu building
-    echo "$json" | jq '{profiles: [.profiles[] | del(.group)]}'
+    printf '%s' "$json" | jq '{profiles: [.profiles[] | del(.group)]}'
 else
     fragment_dir="$(resolve_fragment_dir)"
-
     mkdir -p "$fragment_dir"
     fragment_path="${fragment_dir}/profiles.json"
+
+    # Capture old GUIDs before overwriting so we can remove stale settings.json entries.
+    old_guids_json="[]"
+    if [[ -f "$fragment_path" ]]; then
+        old_guids_json="$(jq '[.profiles[].guid]' "$fragment_path" 2>/dev/null || echo "[]")"
+    fi
 
     # Strip group from the fragment file. The group property tells WT to remove
     # profiles from the flat default view, so keeping it without a matching
     # newTabMenu folder entry causes profiles to vanish entirely.
-    echo "$json" | jq '{profiles: [.profiles[] | del(.group)]}' > "$fragment_path"
+    printf '%s' "$json" | jq '{profiles: [.profiles[] | del(.group)]}' > "$fragment_path"
     echo "Fragment written to: ${fragment_path}" >&2
 
-    guids_json="$(echo "$json" | jq '[.profiles[].guid]')"
-    unhide_fragment_profiles "$guids_json"
+    new_guids_json="$(printf '%s' "$json" | jq '[.profiles[].guid]')"
+    cleanup_stale_profiles "$old_guids_json" "$new_guids_json"
+    unhide_fragment_profiles "$new_guids_json"
     update_new_tab_menu "$json"
 
     echo "Restart Windows Terminal to pick up the new profiles." >&2
