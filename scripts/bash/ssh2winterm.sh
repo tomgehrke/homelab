@@ -351,22 +351,22 @@ update_new_tab_menu() {
             }'
         )"
     else
-        # Sub-group folders with explicit GUIDs, plus a matchProfiles catch-all
-        # for any profiles that don't belong to a sub-group.
+        # Direct profiles (no sub-group) listed individually; prefixed profiles
+        # grouped into sub-folders. No matchProfiles catch-all — that would
+        # duplicate every profile above the sub-folders.
         folder_entry="$(echo "$profiles_json" | jq \
             --arg name "$FRAGMENT_NAME" \
             --arg icon "$ICON_DEFAULT" \
             '
             (.profiles | map(select(.group | test("/") | not))) as $direct |
-            (.profiles | group_by(.group | split("/")[1] // "") |
-                map(select(.[0].group | test("/")))
+            (.profiles | map(select(.group | test("/"))) | group_by(.group | split("/")[1])
             ) as $subgroups |
             {
                 "type": "folder",
                 "name": $name,
                 "icon": $icon,
                 "entries": (
-                    [{"type": "matchProfiles", "source": $name}] +
+                    ($direct | map({"type": "profile", "profile": .name})) +
                     ($subgroups | map({
                         "type": "folder",
                         "name": (.[0].group | split("/")[1]),
