@@ -222,46 +222,57 @@ build_profiles_json() {
     local hosts_tsv="$1"
     local profiles_json="[]"
     local name hostname user port proxyjump
-    local display_name group guid tab_title details profile_obj _dn _candidate
+    local display_name group guid tab_title details profile_obj k v ssh_cmd
 
-    # Pre-pass: count how many SSH aliases would strip to the same display name.
-    # If two hosts share a stripped name (e.g. prd-web and dev-web both → "web"),
-    # they'd get identical GUIDs since WT derives GUID from the profile name field.
-    # Keep the full alias for any colliding host so each GUID stays unique.
-    declare -A _dn_count=()
+    # Compute final display names with iterative collision resolution.
+    # WT derives profile GUIDs from the name field, so duplicate names → duplicate GUIDs.
+    # With --group-by-prefix we strip the prefix (prd-server01 → server01 in prd/ folder),
+    # but if stripping creates a name collision we fall back to the full SSH alias and
+    # iterate until stable. A single pass isn't enough: falling back can introduce new
+    # collisions (e.g. dr-prd-foo strips to prd-foo, but prd-foo also fell back to its
+    # full name prd-foo — chain reaction requires a second pass to resolve).
+    declare -A _final_dn=()
     while IFS='|' read -r name _ _ _ _; do
         [[ -z "$name" ]] && continue
-        _dn="$name"
         if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
-            _dn="${name#*-}"
+            _final_dn["$name"]="${name#*-}"
+        else
+            _final_dn["$name"]="$name"
         fi
-        _dn_count["$_dn"]=$(( ${_dn_count["$_dn"]:-0} + 1 ))
     done <<< "$hosts_tsv"
+
+    local _changed=true
+    while [[ "$_changed" == true ]]; do
+        _changed=false
+        declare -A _freq=()
+        for k in "${!_final_dn[@]}"; do
+            v="${_final_dn[$k]}"
+            _freq["$v"]=$(( ${_freq["$v"]:-0} + 1 ))
+        done
+        for k in "${!_final_dn[@]}"; do
+            v="${_final_dn[$k]}"
+            if [[ "${_freq[$v]:-0}" -gt 1 && "$v" != "$k" ]]; then
+                _final_dn["$k"]="$k"
+                _changed=true
+            fi
+        done
+    done
 
     while IFS='|' read -r name hostname user port proxyjump; do
         [[ -z "$name" ]] && continue
 
-        # Display name and optional folder group.
-        # With --group-by-prefix, strip the prefix segment so "prd-server01"
-        # shows as "server01" inside the "prd" folder — unless stripping would
-        # produce a name shared by another host (collision), in which case the
-        # full alias is kept so GUIDs remain unique.
-        # GUID is derived from display_name so it matches what WT computes
-        # from the profile name field.
-        display_name="$name"
+        # Use the collision-resolved display name. GUID derived from display_name
+        # so it matches what WT computes from the profile name field.
+        display_name="${_final_dn[$name]}"
         group="$FRAGMENT_NAME"
         if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
-            _candidate="${name#*-}"
             group="${FRAGMENT_NAME}/${name%%-*}"
-            if [[ "${_dn_count[$_candidate]:-0}" -le 1 ]]; then
-                display_name="$_candidate"
-            fi
         fi
 
         guid="$(generate_guid "$FRAGMENT_NAME" "$display_name")"
 
         # Build SSH command, incorporating user if specified in config
-        local ssh_cmd="ssh $name"
+        ssh_cmd="ssh $name"
         [[ -n "$user" ]] && ssh_cmd="ssh ${user}@${name}"
 
         # Build tab title with connection details
