@@ -376,10 +376,11 @@ resolve_settings_json() {
 }
 
 # Strip JSONC comments from a file and print clean JSON to stdout.
+# UPDATED: Now uses utf-8-sig to automatically strip the Windows Terminal BOM.
 strip_jsonc() {
     python3 - "$1" << 'PYEOF'
 import sys, re
-txt = open(sys.argv[1], encoding='utf-8').read()
+txt = open(sys.argv[1], encoding='utf-8-sig').read()
 # Remove // line comments but leave // inside quoted strings untouched
 txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
 # Remove /* */ block comments
@@ -423,6 +424,7 @@ update_new_tab_menu() {
         # grouped into sub-folders. Reference by GUID so identical display names
         # across different groups (e.g. prd/server01 vs dev/server01) don't
         # resolve ambiguously.
+        # UPDATED: Changed .name to .guid in the JSON mapping below.
         folder_entry="$(printf '%s' "$profiles_json" | jq \
             --arg name "$FRAGMENT_NAME" \
             --arg icon "$ICON_DEFAULT" \
@@ -435,11 +437,11 @@ update_new_tab_menu() {
                 "name": $name,
                 "icon": $icon,
                 "entries": (
-                    ($direct | map({"type": "profile", "profile": .name})) +
+                    ($direct | map({"type": "profile", "profile": .guid})) +
                     ($subgroups | map({
                         "type": "folder",
                         "name": (.[0].group | split("/")[1]),
-                        "entries": [.[] | {"type": "profile", "profile": .name}]
+                        "entries": [.[] | {"type": "profile", "profile": .guid}]
                     }))
                 )
             }
