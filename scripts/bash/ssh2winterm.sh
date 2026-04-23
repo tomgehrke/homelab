@@ -235,10 +235,9 @@ update_settings_json() {
         return
     fi
 
-    local tmp
-    tmp="$(mktemp)"
-
-    if printf '%s\n' "$clean_json" | jq \
+    # Build the updated JSON first so we can validate it before touching the file.
+    local updated_json
+    if ! updated_json="$(printf '%s\n' "$clean_json" | jq \
         --argjson entry "$folder_entry" \
         --arg fname "$FRAGMENT_NAME" \
         '
@@ -246,12 +245,30 @@ update_settings_json() {
         (if ($cur | any(.[]; .type == "remainingProfiles")) then $cur
          else [{"type": "remainingProfiles"}] + $cur end) as $cur |
         .newTabMenu = (($cur | map(select(.type != "folder" or .name != $fname))) + [$entry])
-        ' > "$tmp" && mv "$tmp" "$settings_file"
-    then
+        ')"; then
+        echo "Warning: jq failed to process settings.json. Add this to newTabMenu manually:" >&2
+        printf '%s\n' "$folder_entry" >&2
+        return
+    fi
+
+    # Sanity-check: the updated JSON must contain our folder entry.
+    if ! printf '%s\n' "$updated_json" | jq -e \
+        --arg fname "$FRAGMENT_NAME" \
+        '.newTabMenu // [] | any(.[]; .type == "folder" and .name == $fname)' \
+        > /dev/null 2>&1; then
+        echo "Warning: updated JSON is missing the folder entry — aborting write." >&2
+        printf '%s\n' "$folder_entry" >&2
+        return
+    fi
+
+    # Write to a temp file on the SAME Windows volume so mv is an atomic rename,
+    # not a cross-filesystem copy (which can race with Windows Terminal).
+    local tmp="${settings_file}.tmp.$$"
+    if printf '%s\n' "$updated_json" > "$tmp" && mv "$tmp" "$settings_file"; then
         echo "  newTabMenu updated." >&2
     else
         rm -f "$tmp"
-        echo "Warning: Failed to update settings.json. Add this to newTabMenu manually:" >&2
+        echo "Warning: Failed to write settings.json. Add this to newTabMenu manually:" >&2
         printf '%s\n' "$folder_entry" >&2
     fi
 }
