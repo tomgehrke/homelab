@@ -533,26 +533,41 @@ cleanup_stale_profiles() {
     settings_file="$(resolve_settings_json)"
     [[ -z "$settings_file" ]] && return
 
-    local stale_count
-    stale_count="$(jq -n \
-        --argjson old "$old_guids_json" \
-        --argjson new "$new_guids_json" \
-        '($old | map(select(. as $g | ($new | index($g)) == null))) | length'
-    )"
-
-    [[ "$stale_count" -eq 0 ]] && return
-
     local clean_json
     clean_json="$(strip_jsonc "$settings_file")"
     [[ -z "$clean_json" ]] && return
+
+    # Stale GUIDs = (old fragment GUIDs not in new) UNION (settings.json source=FRAGMENT_NAME GUIDs not in new).
+    # The second set catches overrides left over from earlier runs that used different display names
+    # or a different script version — they were never in the old fragment file so old→new diff misses them.
+    local stale_count
+    stale_count="$(printf '%s' "$clean_json" | jq \
+        --argjson old "$old_guids_json" \
+        --argjson new "$new_guids_json" \
+        --arg source "$FRAGMENT_NAME" \
+        '
+        ($old | map(select(. as $g | ($new | index($g)) == null))) as $from_old |
+        ([(.profiles.list // [])[] |
+          select(.source == $source and (.guid as $g | ($new | index($g)) == null)) |
+          .guid]) as $from_settings |
+        ($from_old + $from_settings | unique) | length
+        '
+    )"
+
+    [[ "$stale_count" -eq 0 ]] && return
 
     local tmpfile
     tmpfile="$(mktemp)"
     if printf '%s\n' "$clean_json" | jq \
         --argjson old "$old_guids_json" \
         --argjson new "$new_guids_json" \
+        --arg source "$FRAGMENT_NAME" \
         '
-        ($old | map(select(. as $g | ($new | index($g)) == null))) as $stale |
+        ($old | map(select(. as $g | ($new | index($g)) == null))) as $from_old |
+        ([(.profiles.list // [])[] |
+          select(.source == $source and (.guid as $g | ($new | index($g)) == null)) |
+          .guid]) as $from_settings |
+        ($from_old + $from_settings | unique) as $stale |
         if .profiles.list? then
             .profiles.list |= map(select(.guid as $g | ($stale | index($g)) == null))
         else . end
@@ -626,12 +641,13 @@ fi
 
 echo "" >&2
 echo "Generated profiles:" >&2
-echo "$hosts_tsv" | while IFS='|' read -r name hostname user port proxyjump; do
-    display="$name"
-    if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
-        display="${name%%-*}/${name#*-}"
-    fi
-    ssh_target="$name"
-    [[ -n "$user" ]] && ssh_target="${user}@${name}"
-    echo "  ${display}  ->  ssh ${ssh_target}" >&2
+printf '%s' "$json" | jq -r '
+    .profiles[] |
+    (if (.group? // "") | contains("/") then
+        ((.group | split("/")[1:] | join("/")) + "/" + .name)
+    else
+        .name
+    end) + "  ->  " + .commandline
+' | while IFS= read -r line; do
+    echo "  $line" >&2
 done
