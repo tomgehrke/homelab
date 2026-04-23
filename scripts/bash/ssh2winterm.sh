@@ -144,11 +144,21 @@ build_newtabmenu_entry() {
 
 resolve_localappdata() {
     if command -v wslpath &>/dev/null; then
-        wslpath "$(cmd.exe /C 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r')"
-    elif [[ -n "${LOCALAPPDATA:-}" ]]; then
+        local win_path
+        # Try cmd.exe first, then powershell.exe as fallback.
+        # Either may be absent on corporate/restricted WSL setups.
+        win_path="$(cmd.exe /C 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r\n')"
+        # Reject empty output or unexpanded variable (cmd.exe not found)
+        if [[ -z "$win_path" || "$win_path" == '%LOCALAPPDATA%' ]]; then
+            win_path="$(powershell.exe -NoProfile -Command 'Write-Output $env:LOCALAPPDATA' 2>/dev/null | tr -d '\r\n')"
+        fi
+        if [[ -n "$win_path" ]]; then
+            wslpath "$win_path"
+            return
+        fi
+    fi
+    if [[ -n "${LOCALAPPDATA:-}" ]]; then
         echo "$LOCALAPPDATA"
-    else
-        echo ""
     fi
 }
 
