@@ -11,15 +11,18 @@
 # Git Bash: LOCALAPPDATA env var must be set (it is by default)
 #
 # Usage: ./ssh2winterm.sh [OPTIONS]
-#   -c, --config PATH   SSH config file (default: ~/.ssh/config)
-#   -n, --name   NAME   Fragment and folder name (default: SSHProfiles)
-#   -d, --dry-run       Print fragment JSON to stdout; skip all file writes
-#   -h, --help          Show this help
+#   -c, --config PATH        SSH config file (default: ~/.ssh/config)
+#   -n, --name   NAME        Fragment and folder name (default: SSHProfiles)
+#   -l, --localappdata PATH  Windows LOCALAPPDATA as a WSL path
+#                            (auto-detected; use this if auto-detect fails)
+#   -d, --dry-run            Print fragment JSON to stdout; skip all file writes
+#   -h, --help               Show this help
 
 set -euo pipefail
 
 SSH_CONFIG="${HOME}/.ssh/config"
 FRAGMENT_NAME="SSHProfiles"
+LOCALAPPDATA_OVERRIDE=""
 DRY_RUN=false
 
 usage() {
@@ -29,10 +32,11 @@ usage() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -c|--config)  SSH_CONFIG="$2"; shift 2 ;;
-        -n|--name)    FRAGMENT_NAME="$2"; shift 2 ;;
-        -d|--dry-run) DRY_RUN=true; shift ;;
-        -h|--help)    usage ;;
+        -c|--config)       SSH_CONFIG="$2"; shift 2 ;;
+        -n|--name)         FRAGMENT_NAME="$2"; shift 2 ;;
+        -l|--localappdata) LOCALAPPDATA_OVERRIDE="$2"; shift 2 ;;
+        -d|--dry-run)      DRY_RUN=true; shift ;;
+        -h|--help)         usage ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -143,23 +147,40 @@ build_newtabmenu_entry() {
 # ── Path resolution ──────────────────────────────────────────────────────────
 
 resolve_localappdata() {
+    # Manual override wins unconditionally.
+    if [[ -n "$LOCALAPPDATA_OVERRIDE" ]]; then
+        echo "$LOCALAPPDATA_OVERRIDE"; return
+    fi
+
     if command -v wslpath &>/dev/null; then
-        local win_path
-        # Try cmd.exe first, then powershell.exe as fallback.
-        # Either may be absent on corporate/restricted WSL setups.
-        win_path="$(cmd.exe /C 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r\n')"
-        # Reject empty output or unexpanded variable (cmd.exe not found)
-        if [[ -z "$win_path" || "$win_path" == '%LOCALAPPDATA%' ]]; then
-            win_path="$(powershell.exe -NoProfile -Command 'Write-Output $env:LOCALAPPDATA' 2>/dev/null | tr -d '\r\n')"
+        local win_path=""
+
+        # Try each Windows interop method in order; stop at first valid result.
+        # Use || true so a missing binary doesn't trigger set -e.
+        win_path="$(cmd.exe /C 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r\n')" || true
+        # Reject unexpanded placeholder (cmd.exe not found or interop off)
+        [[ "$win_path" == '%LOCALAPPDATA%' ]] && win_path=""
+
+        if [[ -z "$win_path" ]]; then
+            win_path="$(wslvar LOCALAPPDATA 2>/dev/null | tr -d '\r\n')" || true
         fi
+
+        if [[ -z "$win_path" ]]; then
+            win_path="$(powershell.exe -NoProfile -Command 'Write-Output $env:LOCALAPPDATA' 2>/dev/null | tr -d '\r\n')" || true
+        fi
+
         if [[ -n "$win_path" ]]; then
             wslpath "$win_path"
             return
         fi
     fi
+
+    # Git Bash / native Windows sets this directly.
     if [[ -n "${LOCALAPPDATA:-}" ]]; then
-        echo "$LOCALAPPDATA"
+        echo "$LOCALAPPDATA"; return
     fi
+
+    echo ""
 }
 
 resolve_settings_json() {
@@ -260,7 +281,10 @@ fi
 
 local_appdata="$(resolve_localappdata)"
 if [[ -z "$local_appdata" ]]; then
-    echo "Error: Cannot resolve LOCALAPPDATA. Run from WSL or Git Bash." >&2
+    echo "Error: Cannot resolve Windows LOCALAPPDATA path." >&2
+    echo "  Tried: cmd.exe, wslvar, powershell.exe — all unavailable or returned empty." >&2
+    echo "  Fix:   pass it explicitly with -l / --localappdata, e.g.:" >&2
+    echo "           $0 -l \"\$(wslpath 'C:\\Users\\<you>\\AppData\\Local')\"" >&2
     exit 1
 fi
 
