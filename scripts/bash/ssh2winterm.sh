@@ -90,6 +90,15 @@ check_dependencies() {
 }
 
 # GUID generation ──────────────────────────────────────────────────────────
+#
+# Windows Terminal uses deterministic UUIDv5 for fragment profiles:
+#   1. App namespace  = UUIDv5(WT_fragment_namespace, app_name as UTF-16LE)
+#   2. Profile GUID   = UUIDv5(app_namespace, profile_name as UTF-16LE)
+#
+# This matches the algorithm documented by Microsoft. The key detail is that
+# the "name" input must be encoded as UTF-16LE before hashing — plain UTF-8
+# will produce the wrong GUID, and your profile customizations in settings.json
+# will get orphaned when you regenerate.
 
 generate_guid() {
     local app_name="$1"
@@ -99,6 +108,7 @@ generate_guid() {
 import uuid, hashlib, sys
 
 def uuid5_utf16le(namespace, name_str):
+    """UUIDv5 using UTF-16LE encoding for the name, matching Windows Terminal's algorithm."""
     name_bytes = name_str.encode('utf-16-le')
     digest = hashlib.sha1(namespace.bytes + name_bytes).digest()
     return uuid.UUID(bytes=digest[:16], version=5)
@@ -111,8 +121,18 @@ PYEOF
 }
 
 # Parse SSH config ──────────────────────────────────────────────────────────
+#
+# Handles:
+#   - Host entries (single and multi-host lines)
+#   - Skipping wildcards (*, ?, !)
+#   - Skipping Match blocks
+#   - Extracting HostName, User, Port, ProxyJump for tooltip/tab title
 
 emit_hosts() {
+    # Emits one line per host name in the block, fields separated by "|"
+    # We use "|" instead of tab because bash's `read` with IFS=$'\t'
+    # collapses consecutive tabs — meaning empty fields get swallowed
+    # and subsequent values shift left into the wrong variables.
     local names_str="$1" hostname="$2" user="$3" port="$4" proxyjump="$5"
     local name="${names_str%% *}"
 
@@ -136,11 +156,14 @@ parse_ssh_config() {
     local trimmed key val host_value
 
     while IFS= read -r line || [[ -n "$line" ]]; do
+        # Strip leading and trailing whitespace without a subshell
         trimmed="${line#"${line%%[![:space:]]*}"}"
         trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
 
+        # Skip comments and blank lines
         [[ -z "$trimmed" || "$trimmed" == \#* ]] && continue
 
+        # Match block — flush current and ignore
         if [[ "$trimmed" =~ ^[Mm]atch[[:space:]] ]]; then
             if [[ "$in_host" == true ]]; then
                 emit_hosts "$host_names" "$hostname" "$user" "$port" "$proxyjump"
@@ -151,13 +174,16 @@ parse_ssh_config() {
             continue
         fi
 
+        # Host line
         if [[ "$trimmed" =~ ^[Hh]ost[[:space:]]+(.+)$ ]]; then
+            # Flush previous host block
             if [[ "$in_host" == true ]]; then
                 emit_hosts "$host_names" "$hostname" "$user" "$port" "$proxyjump"
             fi
 
             host_value="${BASH_REMATCH[1]}"
 
+            # Skip wildcards/patterns
             if [[ "$host_value" == *[\*\?!]* ]]; then
                 in_host=false
                 host_names=""
@@ -170,6 +196,7 @@ parse_ssh_config() {
             continue
         fi
 
+        # Directives under a Host block
         if [[ "$in_host" == true ]]; then
             read -r key val <<< "$trimmed"
             key="${key,,}"
@@ -183,6 +210,7 @@ parse_ssh_config() {
         fi
     done < "$config_file"
 
+    # Flush last block
     if [[ "$in_host" == true ]]; then
         emit_hosts "$host_names" "$hostname" "$user" "$port" "$proxyjump"
     fi
@@ -196,6 +224,13 @@ build_profiles_json() {
     local name hostname user port proxyjump
     local display_name group guid tab_title details profile_obj k v ssh_cmd
 
+    # Compute final display names with iterative collision resolution.
+    # WT derives profile GUIDs from the name field, so duplicate names → duplicate GUIDs.
+    # With --group-by-prefix we strip the prefix (prd-server01 → server01 in prd/ folder),
+    # but if stripping creates a name collision we fall back to the full SSH alias and
+    # iterate until stable. A single pass isn't enough: falling back can introduce new
+    # collisions (e.g. dr-prd-foo strips to prd-foo, but prd-foo also fell back to its
+    # full name prd-foo — chain reaction requires a second pass to resolve).
     declare -A _final_dn=()
     while IFS='|' read -r name _ _ _ _; do
         [[ -z "$name" ]] && continue
@@ -224,6 +259,8 @@ build_profiles_json() {
         done
     done
 
+    # Sanity check: after iteration, no two aliases should share a display name.
+    # If any remain, report them explicitly so the SSH config can be fixed.
     local _dup_found=false
     for k in "${!_final_dn[@]}"; do
         v="${_final_dn[$k]}"
@@ -244,6 +281,8 @@ build_profiles_json() {
     while IFS='|' read -r name hostname user port proxyjump; do
         [[ -z "$name" ]] && continue
 
+        # Use the collision-resolved display name. GUID derived from display_name
+        # so it matches what WT computes from the profile name field.
         display_name="${_final_dn[$name]}"
         group="$FRAGMENT_NAME"
         if [[ "$GROUP_BY_PREFIX" == true && "$name" == *-* ]]; then
@@ -252,9 +291,11 @@ build_profiles_json() {
 
         guid="$(generate_guid "$FRAGMENT_NAME" "$display_name")"
 
+        # Build SSH command, incorporating user if specified in config
         ssh_cmd="ssh $name"
         [[ -n "$user" ]] && ssh_cmd="ssh ${user}@${name}"
 
+        # Build tab title with connection details
         tab_title=""
         details=""
         [[ -n "$hostname" ]]  && details="Host: $hostname"
@@ -266,6 +307,7 @@ build_profiles_json() {
             tab_title="${name} (${details})"
         fi
 
+        # Build the profile object with jq
         profile_obj="$(jq -n \
             --arg name "$display_name" \
             --arg cmd "$ssh_cmd" \
@@ -288,6 +330,8 @@ build_profiles_json() {
 
     done <<< "$hosts_tsv"
 
+    # group is retained here for update_new_tab_menu to build sub-folder structure
+    # but is stripped from the fragment file itself before writing (see main).
     printf '%s' "$profiles_json" | jq '{profiles: sort_by(.name)}'
 }
 
@@ -332,28 +376,23 @@ resolve_settings_json() {
 }
 
 # Strip JSONC comments from a file and print clean JSON to stdout.
+# UPDATED: Now uses utf-8-sig to automatically strip the Windows Terminal BOM.
 strip_jsonc() {
     python3 - "$1" << 'PYEOF'
 import sys, re
-try:
-    with open(sys.argv[1], encoding='utf-8-sig') as f:
-        txt = f.read()
-    # Remove // line comments but leave // inside quoted strings untouched
-    txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
-    # Remove /* */ block comments
-    txt = re.sub(r'/\*.*?\*/', '', txt, flags=re.DOTALL)
-    # Strip trailing commas that crash jq parsing
-    txt = re.sub(r',\s*([\]}])', r'\1', txt)
-    
-    # Write directly to standard output buffer to prevent Windows CP1252 
-    # encoding crashes when encountering emojis like 🖥️
-    sys.stdout.buffer.write(txt.encode('utf-8'))
-except Exception as e:
-    sys.stderr.write(f"Python JSON processing error: {e}\n")
+txt = open(sys.argv[1], encoding='utf-8-sig').read()
+# Remove // line comments but leave // inside quoted strings untouched
+txt = re.sub(r'("(?:[^"\\]|\\.)*")|//[^\n]*', lambda m: m.group(1) or '', txt)
+# Remove /* */ block comments
+txt = re.sub(r'/\*.*?\*/', '', txt, flags=re.DOTALL)
+print(txt)
 PYEOF
 }
 
 # Writes (or replaces) our folder entry in settings.json's newTabMenu.
+# Preserves any other newTabMenu entries the user has configured.
+# With --group-by-prefix, builds nested sub-folders and references profiles
+# by GUID (not name) so duplicate display names across groups don't collide.
 update_new_tab_menu() {
     local profiles_json="$1"
     local settings_file
@@ -364,6 +403,7 @@ update_new_tab_menu() {
         return
     fi
 
+    # Flat folder using matchProfiles — used when --group-by-prefix is off.
     local flat_folder_entry
     flat_folder_entry="$(jq -n \
         --arg name "$FRAGMENT_NAME" \
@@ -380,12 +420,18 @@ update_new_tab_menu() {
     if [[ "$GROUP_BY_PREFIX" == false ]]; then
         folder_entry="$flat_folder_entry"
     else
+        # Direct profiles (no sub-group) listed individually; prefixed profiles
+        # grouped into sub-folders. Reference by GUID so identical display names
+        # across different groups (e.g. prd/server01 vs dev/server01) don't
+        # resolve ambiguously.
+        # UPDATED: Changed .name to .guid in the JSON mapping below.
         folder_entry="$(printf '%s' "$profiles_json" | jq \
             --arg name "$FRAGMENT_NAME" \
             --arg icon "$ICON_DEFAULT" \
             '
-            (.profiles | map(select(.group | contains("/") | not))) as $direct |
-            (.profiles | map(select(.group | contains("/")))) | group_by(.group | split("/")[1]) as $subgroups |
+            (.profiles | map(select(.group | test("/") | not))) as $direct |
+            (.profiles | map(select(.group | test("/"))) | group_by(.group | split("/")[1])
+            ) as $subgroups |
             {
                 "type": "folder",
                 "name": $name,
@@ -417,11 +463,9 @@ update_new_tab_menu() {
 
     local tmpfile
     tmpfile="$(mktemp)"
-    
-    # Injects the folder logic in a way compatible with both new and old versions of jq.
     if printf '%s\n' "$clean_json" | jq --argjson folder "$folder_entry" --arg fname "$FRAGMENT_NAME" '
         (.newTabMenu // [{"type": "remainingProfiles"}]) as $existing |
-        (if ($existing | map(select(.type == "remainingProfiles")) | length > 0)
+        (if ($existing | any(.[]; .type == "remainingProfiles"))
          then $existing
          else [{"type": "remainingProfiles"}] + $existing end) as $with_remaining |
         .newTabMenu = (
@@ -432,7 +476,7 @@ update_new_tab_menu() {
         echo "Updated newTabMenu (${FRAGMENT_NAME} folder) in: ${settings_file}" >&2
     else
         local jq_err
-        jq_err="$(cat /tmp/ssh2winterm_jq_err 2>/dev/null || true)"
+        jq_err="$(cat /tmp/ssh2winterm_jq_err 2>/dev/null)"
         rm -f "$tmpfile" /tmp/ssh2winterm_jq_err
         echo "Warning: Failed to update newTabMenu in settings.json." >&2
         [[ -n "$jq_err" ]] && echo "  jq error: ${jq_err}" >&2
@@ -441,6 +485,10 @@ update_new_tab_menu() {
     fi
 }
 
+# Fragment profiles can be shadowed by stale overrides in settings.json that
+# have hidden:true — those entries take precedence and the profile vanishes
+# from the UI (but still appears in the "Copy a profile" dialog). This removes
+# the hidden flag from any settings.json override that matches one of our GUIDs.
 unhide_fragment_profiles() {
     local guids_json="$1"
     local settings_file
@@ -477,6 +525,9 @@ unhide_fragment_profiles() {
     fi
 }
 
+# Remove profile overrides in settings.json whose GUIDs were in the old fragment
+# but are absent from the new one. This cleans up warning triangles that appear
+# when hosts are renamed or removed.
 cleanup_stale_profiles() {
     local old_guids_json="$1"
     local new_guids_json="$2"
@@ -488,6 +539,9 @@ cleanup_stale_profiles() {
     clean_json="$(strip_jsonc "$settings_file")"
     [[ -z "$clean_json" ]] && return
 
+    # Stale GUIDs = (old fragment GUIDs not in new) UNION (settings.json source=FRAGMENT_NAME GUIDs not in new).
+    # The second set catches overrides left over from earlier runs that used different display names
+    # or a different script version — they were never in the old fragment file so old→new diff misses them.
     local stale_count
     stale_count="$(printf '%s' "$clean_json" | jq \
         --argjson old "$old_guids_json" \
@@ -548,12 +602,16 @@ json="$(build_profiles_json "$hosts_tsv")"
 if [[ "$DRY_RUN" == true ]]; then
     echo "" >&2
     echo "--- Fragment JSON (dry run) ---" >&2
+    # Strip group before display: it's WT metadata used only for newTabMenu building
     printf '%s' "$json" | jq '{profiles: [.profiles[] | del(.group)]}'
 else
     fragment_dir="$(resolve_fragment_dir)"
     mkdir -p "$fragment_dir"
     fragment_path="${fragment_dir}/profiles.json"
 
+    # Warn if other fragment directories exist alongside ours — stale dirs from
+    # previous runs with a different --name will still show up in Windows Terminal
+    # and must be deleted manually.
     fragments_parent="${fragment_dir%/*}"
     if [[ -d "$fragments_parent" ]]; then
         while IFS= read -r -d '' stale_dir; do
@@ -563,11 +621,15 @@ else
         done < <(find "$fragments_parent" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
     fi
 
+    # Capture old GUIDs before overwriting so we can remove stale settings.json entries.
     old_guids_json="[]"
     if [[ -f "$fragment_path" ]]; then
         old_guids_json="$(jq '[.profiles[].guid]' "$fragment_path" 2>/dev/null || echo "[]")"
     fi
 
+    # Strip group from the fragment file. The group property tells WT to remove
+    # profiles from the flat default view, so keeping it without a matching
+    # newTabMenu folder entry causes profiles to vanish entirely.
     printf '%s' "$json" | jq '{profiles: [.profiles[] | del(.group)]}' > "$fragment_path"
     echo "Fragment written to: ${fragment_path}" >&2
 
