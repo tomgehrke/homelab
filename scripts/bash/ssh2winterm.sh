@@ -313,6 +313,13 @@ printf '%s\n' "$fragment_json" > "$fragment_file"
 echo "Fragment written: $fragment_file" >&2
 
 folder_entry="$(build_newtabmenu_entry "$fragment_json")"
+
+# Always write the newTabMenu entry as a standalone file so it can be
+# copied manually into settings.json if the auto-update fails.
+newtabmenu_file="${fragment_dir}/newTabMenu.json"
+printf '%s\n' "$folder_entry" > "$newtabmenu_file"
+echo "newTabMenu entry: $newtabmenu_file" >&2
+
 update_settings_json "$folder_entry"
 
 echo "" >&2
