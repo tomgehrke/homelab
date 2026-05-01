@@ -12,6 +12,21 @@ HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse 
 
 source "$HOMELAB_ROOT/scripts/bash/git/check-repo.sh"
 
+# Source repo list early so _NON_HOMELAB_REPOS is known before fetching
+source "$HOME/.bashrc.d/check-my-repos.sh"
+
+# Start all repo fetches in parallel immediately to overlap with startup tasks
+_fetch_pids=()
+_fetch_repos=()
+for _r in "$HOMELAB_ROOT" "${_NON_HOMELAB_REPOS[@]}"; do
+        if [[ -d "$_r/.git" ]]; then
+                git -C "$_r" fetch --quiet >/dev/null 2>&1 &
+                _fetch_pids+=($!)
+                _fetch_repos+=("$_r")
+        fi
+done
+unset _r
+
 runElevated() {
     [[ $EUID != 0 ]] && sudo "$@" || "$@"
     return $?
@@ -26,6 +41,27 @@ cdhp() {
         if [[ -d ~/homelab_priv ]]; then
                 cd ~/homelab_priv
         fi
+}
+
+# Track the last checked repo to avoid redundant checks while navigating within it
+_last_checked_repo=""
+
+# cd hook: check non-homelab repos when first navigating into them.
+# _NON_HOMELAB_REPOS is defined in .bashrc.d/check-my-repos.sh
+cd() {
+        builtin cd "$@" || return
+        [[ "${#_NON_HOMELAB_REPOS[@]}" -eq 0 ]] && return 0
+        local _cd_repo
+        for _cd_repo in "${_NON_HOMELAB_REPOS[@]}"; do
+                if [[ "$PWD" == "$_cd_repo" || "$PWD" == "$_cd_repo/"* ]]; then
+                        if [[ "$_last_checked_repo" != "$_cd_repo" ]]; then
+                                _last_checked_repo="$_cd_repo"
+                                checkRepo "$_cd_repo"
+                        fi
+                        return 0
+                fi
+        done
+        _last_checked_repo=""
 }
 
 getPackageManager() {
@@ -120,9 +156,13 @@ if [[ -d "$HOME/scripts" ]] ; then
         PATH="$HOME/scripts:$PATH"
 fi
 
-# Checks homelab repository and prompts for update
-echo Checking Homelab repository...
-checkRepo "$HOMELAB_ROOT"
+# Wait for all background fetches then check status
+printf '\n\e[1m Repositories\e[0m\n'
+for _i in "${!_fetch_pids[@]}"; do
+        wait "${_fetch_pids[$_i]}" 2>/dev/null
+        checkRepo --skip-fetch "${_fetch_repos[$_i]}"
+done
+unset _fetch_pids _fetch_repos _i
 
 # Installs required applications
 installApps
@@ -170,9 +210,13 @@ if command -v ncdu >/dev/null 2>&1; then
         alias du='ncdu -x -e --color dark'
 fi
 
-# Show system info
-command -v screenfetch >/dev/null && screenfetch
-command -v fastfetch >/dev/null && fastfetch
+# Show system info (logo-less; -n for screenfetch, --logo none for fastfetch)
+printf '\n\e[1m System\e[0m\n'
+if command -v fastfetch >/dev/null 2>&1; then
+        fastfetch --logo none
+elif command -v screenfetch >/dev/null 2>&1; then
+        screenfetch -n
+fi
 echo
 
 # Check for bashrc.d and execute contents
@@ -197,4 +241,4 @@ fi
 source ~/scripts/fancy-prompt.sh
 
 # Report location
-echo Welcome to $(whereami)!
+printf '\n\e[1mWelcome to \e[36m%s\e[0m!\n' "$(whereami)"

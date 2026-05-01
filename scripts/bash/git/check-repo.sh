@@ -1,60 +1,72 @@
 #!/usr/bin/env bash
 
 checkRepo() {
+        local skipFetch=false
+        if [[ "$1" == "--skip-fetch" ]]; then
+                skipFetch=true
+                shift
+        fi
         local repoPath="$1"
         local fetchResult
         local localStatus behindCount localBehind aheadCount localAhead
 
-        git -C "$repoPath" fetch --quiet >/dev/null
-        fetchResult=$?
-        if [[ $fetchResult -gt 0 ]]; then
-                return $fetchResult
+        local _r='' _green='' _yellow='' _red='' _cyan='' _dim=''
+        if [[ -t 1 ]]; then
+                _r=$'\e[0m' _green=$'\e[32m' _yellow=$'\e[33m'
+                _red=$'\e[31m' _cyan=$'\e[36m' _dim=$'\e[2m'
         fi
 
-        # See if local repo has unstaged changes
-        git -C "$repoPath" diff --quiet || localStatus="${localStatus}, UNSTAGED"
+        if [[ "$skipFetch" == false ]]; then
+                git -C "$repoPath" fetch --quiet >/dev/null
+                fetchResult=$?
+                if [[ $fetchResult -gt 0 ]]; then
+                        return $fetchResult
+                fi
+        fi
 
-        # See if local repo has uncommitted changes
-        git -C "$repoPath" diff --cached --quiet || localStatus="${localStatus}, UNCOMMITTED"
+        git -C "$repoPath" diff --quiet          || localStatus+=" UNSTAGED"
+        git -C "$repoPath" diff --cached --quiet || localStatus+=" UNCOMMITTED"
+        [[ -n "$(git -C "$repoPath" ls-files --others --exclude-standard)" ]] \
+                && localStatus+=" UNTRACKED"
 
-        # Check for untracked files
-        [[ -n "$(git -C "$repoPath" ls-files --others --exclude-standard)" ]] && localStatus="${localStatus}, UNTRACKED"
-
-        # Make sure we're on a branch with an upstream
         if git -C "$repoPath" rev-parse --abbrev-ref --symbolic-full-name @{u} &>/dev/null; then
-            local currentBranch upstreamRef
-
-            currentBranch=$(git -C "$repoPath" symbolic-ref --quiet --short HEAD)
-            upstreamRef=$(git -C "$repoPath" for-each-ref --format='%(upstream:short)' "refs/heads/$currentBranch")
+                local currentBranch upstreamRef
+                currentBranch=$(git -C "$repoPath" symbolic-ref --quiet --short HEAD)
+                upstreamRef=$(git -C "$repoPath" for-each-ref --format='%(upstream:short)' \
+                        "refs/heads/$currentBranch")
         fi
 
         if [[ -n "$upstreamRef" ]]; then
                 behindCount=$(git -C "$repoPath" rev-list --count "$currentBranch..$upstreamRef")
                 aheadCount=$(git -C "$repoPath" rev-list --count "$upstreamRef..$currentBranch")
-
                 [[ "$behindCount" =~ ^[0-9]+$ && "$behindCount" -gt 0 ]] && localBehind=true
-                [[ "$aheadCount" =~ ^[0-9]+$ && "$aheadCount" -gt 0 ]] && localAhead=true
+                [[ "$aheadCount"  =~ ^[0-9]+$ && "$aheadCount"  -gt 0 ]] && localAhead=true
         fi
 
-        # Report Results
+        local repoName
+        repoName=$(basename "$repoPath")
 
-        if [[ -n "$localStatus" ]]; then
-                echo "=> ${repoPath} status: ${localStatus:2}"
+        printf "  ${_cyan}%-20s${_r}" "$repoName"
+        if [[ -z "$localStatus" && "$localBehind" != true && "$localAhead" != true ]]; then
+                printf "  ${_green}✓${_r}\n"
+        else
+                [[ -n "$localStatus" ]]     && printf "  ${_yellow}⚠%s${_r}" "$localStatus"
+                [[ "$localBehind" = true ]] && printf "  ${_red}↓ %d${_r}" "$behindCount"
+                [[ "$localAhead"  = true ]] && printf "  ${_yellow}↑ %d${_r}" "$aheadCount"
+                printf "\n"
         fi
 
         if [[ "$localBehind" = true ]]; then
-                read -p "=> ${repoPath} needs updating. Would you like to do this now? (y/n): " response
-                if [[ "${response,,}" = "y" ]]; then
-                        git -C "$repoPath" pull
-                fi
+                printf "  ${_dim}Pull %s? (%d behind) [y/N]:${_r} " "$repoName" "$behindCount"
+                read -r response
+                [[ "${response,,}" = "y" ]] && git -C "$repoPath" pull
                 echo
         fi
 
         if [[ "$localAhead" = true ]]; then
-                read -p "=> ${repoPath} has local changes. Push to remote? (y/n): " response
-                if [[ "${response,,}" = "y" ]]; then
-                        git -C "$repoPath" push
-                fi
+                printf "  ${_dim}Push %s? (%d ahead) [y/N]:${_r} " "$repoName" "$aheadCount"
+                read -r response
+                [[ "${response,,}" = "y" ]] && git -C "$repoPath" push
                 echo
         fi
 }
