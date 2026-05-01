@@ -17,7 +17,7 @@ checkRepo() {
         fi
 
         if [[ "$skipFetch" == false ]]; then
-                git -C "$repoPath" fetch --quiet >/dev/null
+                git -C "$repoPath" fetch --quiet 2>/dev/null
                 fetchResult=$?
                 if [[ $fetchResult -gt 0 ]]; then
                         return $fetchResult
