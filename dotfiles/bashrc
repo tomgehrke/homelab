@@ -13,7 +13,7 @@ HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse 
 source "$HOMELAB_ROOT/scripts/bash/git/check-repo.sh"
 
 # Source repo list early so _NON_HOMELAB_REPOS is known before fetching
-source "$HOME/.bashrc.d/check-my-repos.sh"
+[[ -f "$HOME/.bashrc.d/check-my-repos.sh" ]] && source "$HOME/.bashrc.d/check-my-repos.sh"
 
 # Start all repo fetches in parallel immediately to overlap with startup tasks
 _fetch_pids=()
