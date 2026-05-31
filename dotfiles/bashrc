@@ -5,10 +5,60 @@
 # Do nothing if not running interactively
 [[ -n $PS1 ]] || return
 
+# ===================================================================
+# ENVIRONMENT
+# ===================================================================
+
 CONFIG_DIR="$HOME/.config/homelab"
 CONFIG_FILE="$CONFIG_DIR/homelab.conf"
 ENV_FILE="$CONFIG_DIR/homelab.env"
 HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)"
+
+export EDITOR="nano" PAGER="less"
+export GREP_COLOR='1;36'
+export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
+export TZ='America/Chicago'
+export GIT_DEFAULT_BRANCH="main"
+
+# Make sure there is a nano backup directory
+mkdir -p "$HOME/.nanobackup"
+
+# Update environment
+if [[ -f ${ENV_FILE} ]]; then
+        source ${ENV_FILE}
+fi
+
+# Shell options
+shopt -s cdspell
+shopt -s checkwinsize
+shopt -s autocd   2>/dev/null || true
+shopt -s dirspell 2>/dev/null || true
+
+# Aliases
+alias ..='echo "cd .."; cd ..'
+alias ...='echo "cd ../.."; cd ../..'
+alias ....='echo "cd ../../.."; cd ../../..'
+alias whereami='curl -sSf --connect-timeout 3 https://ipinfo.io/city 2>/dev/null || echo "NO CONNECTION"'
+alias ls='ls --group-directories-first --color=auto -p'
+alias l='ls'
+alias ll='ls -hAlF'
+alias flushdns='resolvectl flush-caches'
+alias update-all='runElevated apt update && runElevated apt upgrade -y'
+grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
+
+eval $(dircolors -b)
+
+if command -v batcat >/dev/null 2>&1; then
+        alias bat='batcat'
+fi
+
+if command -v ncdu >/dev/null 2>&1; then
+        alias du='ncdu -x -e --color dark'
+fi
+
+# ===================================================================
+# REPOSITORY CHECKS: Start checks in background
+# ===================================================================
 
 source "$HOMELAB_ROOT/scripts/bash/git/check-repo.sh"
 
@@ -27,6 +77,13 @@ for _r in "$HOMELAB_ROOT" "${_NON_HOMELAB_REPOS[@]}"; do
 done
 unset _r
 
+# Track the last checked repo to avoid redundant checks while navigating within it
+_last_checked_repo=""
+
+# ===================================================================
+# FUNCTIONS
+# ===================================================================
+
 runElevated() {
     [[ $EUID != 0 ]] && sudo "$@" || "$@"
     return $?
@@ -42,9 +99,6 @@ cdhp() {
                 cd ~/homelab_priv
         fi
 }
-
-# Track the last checked repo to avoid redundant checks while navigating within it
-_last_checked_repo=""
 
 # cd hook: check non-homelab repos when first navigating into them.
 # _NON_HOMELAB_REPOS is defined in .bashrc.d/check-my-repos.sh
@@ -148,6 +202,20 @@ installApps() {
     done
 }
 
+_prompt_command() {
+        local user=$USER
+        local host=${HOSTNAME%%.*}
+        local pwd=${PWD/#$HOME/\~}
+        local ssh=
+        [[ -n $SSH_CLIENT ]] && ssh='[ssh] '
+        printf "\033]0;%s%s@%s:%s\007" "$ssh" "$user" "$host" "$pwd"
+}
+PROMPT_COMMAND=_prompt_command
+
+# ===================================================================
+# DO THE THINGS
+# ===================================================================
+
 # Performs initial setup if required
 initializeHomelab
 
@@ -156,62 +224,11 @@ if [[ -d "$HOME/scripts" ]] ; then
         PATH="$HOME/scripts:$PATH"
 fi
 
-# Wait for all background fetches then check status
-printf '\n\e[1m Repositories\e[0m\n'
-for _i in "${!_fetch_pids[@]}"; do
-        wait "${_fetch_pids[$_i]}" 2>/dev/null
-        checkRepo --skip-fetch "${_fetch_repos[$_i]}"
-done
-unset _fetch_pids _fetch_repos _i
-
 # Installs required applications
 installApps
 
-# Environment
-export EDITOR="nano" PAGER="less"
-export GREP_COLOR='1;36'
-export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
-export TZ='America/Chicago'
-export GIT_DEFAULT_BRANCH="main"
-
-# Make sure there is a nano backup directory
-mkdir -p "$HOME/.nanobackup"
-
-# Update environment
-if [[ -f ${ENV_FILE} ]]; then
-        source ${ENV_FILE}
-fi
-
-# Shell options
-shopt -s cdspell
-shopt -s checkwinsize
-shopt -s autocd   2>/dev/null || true
-shopt -s dirspell 2>/dev/null || true
-
-# Aliases
-alias ..='echo "cd .."; cd ..'
-alias ...='echo "cd ../.."; cd ../..'
-alias ....='echo "cd ../../.."; cd ../../..'
-alias whereami='curl -sSf --connect-timeout 3 https://ipinfo.io/city 2>/dev/null || echo "NO CONNECTION"'
-alias l='ls'
-alias ll='ls -hAlF'
-alias flushdns='resolvectl flush-caches'
-alias update-all='runElevated apt update && runElevated apt upgrade -y'
-grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
-
-alias ls='ls --group-directories-first --color=auto'
-eval $(dircolors -b)
-
-if command -v batcat >/dev/null 2>&1; then
-        alias bat='batcat'
-fi
-
-if command -v ncdu >/dev/null 2>&1; then
-        alias du='ncdu -x -e --color dark'
-fi
-
 # Show system info (logo-less; -n for screenfetch, --logo none for fastfetch)
-printf '\n\e[1m System\e[0m\n'
+printf '\n\e[1mSystem\e[0m\n'
 if command -v fastfetch >/dev/null 2>&1; then
         fastfetch --logo none
 elif command -v screenfetch >/dev/null 2>&1; then
@@ -238,6 +255,21 @@ if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
         $HOME/scripts/check-freespace.sh "$diskThreshold"
 fi
 
+
+# ===================================================================
+# REPOSITORY CHECKS: Report results
+# ===================================================================
+
+printf '\n\e[1mRepositories\e[0m\n'
+for _i in "${!_fetch_pids[@]}"; do
+        wait "${_fetch_pids[$_i]}" 2>/dev/null
+        checkRepo --skip-fetch "${_fetch_repos[$_i]}"
+done
+unset _fetch_pids _fetch_repos _i
+
+# ===================================================================
+# MAKE PROMPT FANCY
+# ===================================================================
 source ~/scripts/fancy-prompt.sh
 
 # Report location
