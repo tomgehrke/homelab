@@ -236,14 +236,6 @@ elif command -v screenfetch >/dev/null 2>&1; then
 fi
 echo
 
-# Check for bashrc.d and execute contents
-if [ -d "$HOME/.bashrc.d/" ]; then
-        for file in "$HOME/.bashrc.d/"*; do
-        	[ -r "$file" ] && source "$file"
-        done
-        unset file
-fi
-
 # Make sure our PATH is good for all the things
 if [[ -d "$HOME/.local/bin" ]] ; then
         PATH="$HOME/.local/bin:$PATH"
@@ -255,7 +247,6 @@ if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
         $HOME/scripts/check-freespace.sh "$diskThreshold"
 fi
 
-
 # ===================================================================
 # REPOSITORY CHECKS: Report results
 # ===================================================================
@@ -266,6 +257,18 @@ for _i in "${!_fetch_pids[@]}"; do
         checkRepo --skip-fetch "${_fetch_repos[$_i]}"
 done
 unset _fetch_pids _fetch_repos _i
+
+# ===================================================================
+# DO EXTRA THINGS
+# ===================================================================
+
+# Check for bashrc.d and execute contents
+if [ -d "$HOME/.bashrc.d/" ]; then
+        for file in "$HOME/.bashrc.d/"*; do
+        	[ -r "$file" ] && source "$file"
+        done
+        unset file
+fi
 
 # ===================================================================
 # MAKE PROMPT FANCY
