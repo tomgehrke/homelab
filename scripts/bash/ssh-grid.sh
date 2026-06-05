@@ -1,14 +1,30 @@
 #!/usr/bin/env bash
+<<<<<<< HEAD
 # ssh-grid.sh — select SSH hosts and output a Windows Terminal commandline
 #
 # Presents a checklist of hosts from ~/.ssh/config, computes the most-square
 # pane grid, and prints a commandline to be pasted into a WT action
+=======
+# ssh-grid.sh — select SSH hosts and output a Windows Terminal action JSON
+#
+# Presents a checklist of hosts from ~/.ssh/config, computes the most-square
+# pane grid, and prints a JSON snippet ready to paste into the "actions" array
+# in Windows Terminal's settings.json.
+#
+# Grid layout (cols = ceil(√N), rows = ceil(N/cols), left-to-right then down):
+#   2 → [A|B]        3 → [A|B]      4 → [A|B]    5 → [A|B|C]
+#                        [ C  ]          [C|D]        [ D | E ]
+>>>>>>> ea066edb8e75573632704131d6aa470288a0a7ea
 #
 # Pane command: wsl.exe -- ssh <host>
 #   This explicitly runs WSL's ssh so host aliases in ~/.ssh/config resolve.
 #   Pass --distro NAME to target a specific WSL distribution.
 #
+<<<<<<< HEAD
 # Requirements: whiptail, awk
+=======
+# Requirements: whiptail, python3
+>>>>>>> ea066edb8e75573632704131d6aa470288a0a7ea
 #
 # Usage: ssh-grid.sh [OPTIONS]
 #   -c, --config PATH    SSH config file (default: ~/.ssh/config)
@@ -35,7 +51,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+<<<<<<< HEAD
 for dep in whiptail awk; do
+=======
+for dep in whiptail python3; do
+>>>>>>> ea066edb8e75573632704131d6aa470288a0a7ea
     command -v "$dep" &>/dev/null || { echo "Error: $dep is required" >&2; exit 1; }
 done
 
@@ -99,10 +119,20 @@ select_hosts() {
 # ── Grid math ─────────────────────────────────────────────────────────────────
 
 calc_grid() {
+<<<<<<< HEAD
     local n=$1 cols rows
     cols=$(awk "BEGIN {print int(sqrt($n - 1)) + 1}")
     rows=$(( (n + cols - 1) / cols ))
     echo "$cols $rows"
+=======
+    python3 - "$1" <<'PY'
+import sys, math
+n = int(sys.argv[1])
+cols = math.ceil(math.sqrt(n))
+rows = math.ceil(n / cols)
+print(cols, rows)
+PY
+>>>>>>> ea066edb8e75573632704131d6aa470288a0a7ea
 }
 
 # ── wt commandline builder ────────────────────────────────────────────────────
