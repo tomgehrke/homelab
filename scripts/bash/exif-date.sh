@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Extract the earliest valid EXIF date from an image file.
 # Supports JPEG and TIFF. PNG is attempted but unsupported officially.
+# Uses exiftool when available; falls back to binary grep over first 16 KB.
 # Outputs: YYYY:MM:DD HH:MM:SS on stdout, or an error on stderr with exit 1.
 
 set -euo pipefail
 
-REQUIRED_CMDS=(xxd dd grep head)
+REQUIRED_CMDS=(xxd grep head)
 
 # ---------------------------------------------------------------------------
 # Dependency check
@@ -46,13 +47,68 @@ has_exif() {
 }
 
 # ---------------------------------------------------------------------------
-# Date string extraction
-# Reads first 128 KB (covers all real-world EXIF segments) and greps for
-# the EXIF ASCII date format: YYYY:MM:DD HH:MM:SS
-# Leading digit restricted to 1 or 2 to reduce false positives.
+# Date extraction — three strategies, tried in order:
+#
+# 1. exiftool: reads DateTimeOriginal by tag name — no false positives.
+#
+# 2. XMP label search: XMP is XML text embedded in the JPEG, so the field
+#    name (e.g. "DateTimeOriginal") appears as a literal string immediately
+#    before the value. Handles both ISO 8601 (YYYY-MM-DDTHH:MM:SS) and EXIF
+#    colon format (YYYY:MM:DD HH:MM:SS). No ambiguity about which date is
+#    which — the label tells us directly.
+#
+# 3. Binary grep, metadata only: finds the JPEG SOS marker (FF DA) which
+#    marks the start of entropy-coded scan data (the source of false
+#    positives), then greps only the bytes before it. Uses earliest-date
+#    heuristic as last resort.
 # ---------------------------------------------------------------------------
 extract_raw_dates() {
-    head -c 131072 "$1" 2>/dev/null \
+    local file="$1"
+
+    # Strategy 1: exiftool
+    if command -v exiftool &>/dev/null; then
+        exiftool -DateTimeOriginal -DateTime -DateTimeDigitized \
+                 -d "%Y:%m:%d %H:%M:%S" -s3 "$file" 2>/dev/null || true
+        return
+    fi
+
+    # Strategy 2: labeled DateTimeOriginal in XMP text
+    local labeled
+    # ISO 8601 variant: YYYY-MM-DDTHH:MM:SS
+    labeled=$(grep -aoa 'DateTimeOriginal[^0-9]\{0,20\}[12][0-9]\{3\}-[0-1][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]' \
+              "$file" 2>/dev/null \
+              | grep -oa '[12][0-9]\{3\}-[0-1][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]' \
+              | head -1)
+    if [[ -n "$labeled" ]]; then
+        # Convert ISO 8601 → EXIF colon format
+        echo "${labeled:0:4}:${labeled:5:2}:${labeled:8:2} ${labeled:11:8}"
+        return
+    fi
+    # EXIF colon format variant: YYYY:MM:DD HH:MM:SS
+    labeled=$(grep -aoa 'DateTimeOriginal[^0-9]\{0,20\}[12][0-9]\{3\}:[0-1][0-9]:[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]' \
+              "$file" 2>/dev/null \
+              | grep -oa '[12][0-9]\{3\}:[0-1][0-9]:[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]' \
+              | head -1)
+    if [[ -n "$labeled" ]]; then
+        echo "$labeled"
+        return
+    fi
+
+    # Strategy 3: binary grep, stop before JPEG scan data
+    # Find the SOS marker (FF DA) to avoid entropy-coded image bytes.
+    local sos_hex_pos read_bytes
+    sos_hex_pos=$(xxd -l 65536 -p "$file" 2>/dev/null \
+                  | tr -d '\n' \
+                  | grep -bo 'ffda' 2>/dev/null \
+                  | head -1 \
+                  | cut -d: -f1)
+    if [[ -n "$sos_hex_pos" ]]; then
+        read_bytes=$(( sos_hex_pos / 2 ))  # hex offset → byte offset
+    else
+        read_bytes=65536
+    fi
+
+    head -c "$read_bytes" "$file" 2>/dev/null \
         | grep -oa '[12][0-9]\{3\}:[0-1][0-9]:[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]' \
         || true
 }
