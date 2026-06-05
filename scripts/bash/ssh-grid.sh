@@ -185,6 +185,8 @@ while IFS='|' read -r hname huser; do
     HOST_USER["$hname"]="$huser"
 done < <(parse_ssh_config "$SSH_CONFIG")
 
+mapfile -t all_hosts < <(printf '%s\n' "${all_hosts[@]}" | sort)
+
 [[ ${#all_hosts[@]} -eq 0 ]] && { echo "No hosts found in $SSH_CONFIG." >&2; exit 1; }
 
 selected_str=$(select_hosts "${all_hosts[@]}") || { echo "Cancelled." >&2; exit 0; }
