@@ -15,6 +15,7 @@ ENV_FILE="$CONFIG_DIR/homelab.env"
 HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)"
 
 export EDITOR="nano" PAGER="less"
+export LESS="-R"
 export GREP_COLOR='1;36'
 export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
 export TZ='America/Chicago'
