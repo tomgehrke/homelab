@@ -15,12 +15,15 @@ ENV_FILE="$CONFIG_DIR/homelab.env"
 HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)"
 
 export EDITOR="nano" PAGER="less"
-# The uppercase -D color classes (P/S/N/E/M) need a newer `less` than some
-# hosts have (e.g. less 590 rejects them; 668 accepts them). Probe for
-# support and fall back to the older, universally-supported d/u flags.
+# The -D<letter>+<8-bit-number> color syntax needs a newer `less` than some
+# hosts have (e.g. less 590 rejects it entirely, regardless of letter;
+# 668 accepts it). -D only recolors less's own chrome (line numbers,
+# prompts, search hits) -- content piped in (git diff, delta, grep) is
+# already ANSI-colored and renders fine via plain -R -- so on unsupported
+# hosts, drop -D entirely rather than risk another unsupported variant.
 _lessColorFull="-R --use-color -Dd+209 -Du+117 -DP16.44 -DS16.220 -DN239 -DE231.203 -DM141"
 if printf '' | LESS="$_lessColorFull" less -F -Q 2>&1 | grep -q "Invalid color string"; then
-	export LESS="-R --use-color -Dd+209 -Du+117"
+	export LESS="-R --use-color"
 else
 	export LESS="$_lessColorFull"
 fi
