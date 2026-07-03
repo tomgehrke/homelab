@@ -15,7 +15,16 @@ ENV_FILE="$CONFIG_DIR/homelab.env"
 HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)"
 
 export EDITOR="nano" PAGER="less"
-export LESS="-R --use-color -Dd+209 -Du+117 -DP16.44 -DS16.220 -DN239 -DE231.203 -DM141"
+# The uppercase -D color classes (P/S/N/E/M) need a newer `less` than some
+# hosts have (e.g. less 590 rejects them; 668 accepts them). Probe for
+# support and fall back to the older, universally-supported d/u flags.
+_lessColorFull="-R --use-color -Dd+209 -Du+117 -DP16.44 -DS16.220 -DN239 -DE231.203 -DM141"
+if printf '' | LESS="$_lessColorFull" less -F -Q 2>&1 | grep -q "Invalid color string"; then
+	export LESS="-R --use-color -Dd+209 -Du+117"
+else
+	export LESS="$_lessColorFull"
+fi
+unset _lessColorFull
 export GREP_COLORS='mt=01;38;5;209:fn=38;5;117:ln=38;5;239:se=38;5;239'
 export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
 export TZ='America/Chicago'
