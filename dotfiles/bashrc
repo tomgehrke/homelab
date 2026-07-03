@@ -15,8 +15,8 @@ ENV_FILE="$CONFIG_DIR/homelab.env"
 HOMELAB_ROOT="$(git -C "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)"
 
 export EDITOR="nano" PAGER="less"
-export LESS="-R"
-export GREP_COLOR='1;36'
+export LESS="-R --use-color -Dd+209 -Du+117 -DP16.44 -DS16.220 -DN239 -DE231.203 -DM141"
+export GREP_COLORS='mt=01;38;5;209:fn=38;5;117:ln=38;5;239:se=38;5;239'
 export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
 export TZ='America/Chicago'
 export GIT_DEFAULT_BRANCH="main"
@@ -47,7 +47,7 @@ alias flushdns='resolvectl flush-caches'
 alias update-all='runElevated apt update && runElevated apt upgrade -y'
 grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
 
-eval $(dircolors -b)
+eval $(dircolors -b "$HOMELAB_ROOT/dotfiles/dircolors" 2>/dev/null || dircolors -b)
 
 if command -v batcat >/dev/null 2>&1; then
         alias bat='batcat'
@@ -138,7 +138,7 @@ initializeHomelab() {
         if [[ ! -f "$CONFIG_FILE" ]]; then
                 # Add default set of applications to new config
                 jq -n '{
-                        allApps: ["ncdu","bat","mc"],
+                        allApps: ["ncdu","bat","mc","git-delta"],
                         aptApps: ["screenfetch"],
                         dnfApps: ["fastfetch"],
                         excludeApps: [],

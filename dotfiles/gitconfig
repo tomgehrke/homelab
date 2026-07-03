@@ -9,3 +9,24 @@
 	rebase = false
 [safe]
 	directory = /minecraft/crafty/crafty-4
+[alias]
+	dsbs = "!f() { git diff \"$@\" | delta --side-by-side; }; f"
+# delta colors reuse the same "Dark mode (colorblind-friendly)" palette as
+# dotfiles/dircolors and the LESS env var in dotfiles/bashrc: blue/orange
+# (not red/green) mark additions/removals, since that's the standard
+# colorblind-safe contrasting pair. Uses plain 256-color indices (not hex)
+# on purpose: dark, low-saturation hex backgrounds round to the same grey
+# on terminals without COLORTERM=truecolor, erasing the blue/orange split.
+[delta]
+	line-numbers = true
+	line-numbers-minus-style = "239"
+	line-numbers-plus-style = "239"
+	line-numbers-zero-style = "239"
+	minus-style = "syntax 94"
+	minus-emph-style = "syntax 130"
+	plus-style = "syntax 17"
+	plus-emph-style = "syntax 24"
+	hunk-header-style = "141 bold"
+	hunk-header-decoration-style = "141 box"
+	file-style = "220 bold"
+	file-decoration-style = "220 ul"

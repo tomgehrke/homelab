@@ -1,0 +1,206 @@
+# Recolored from `dircolors --print-database` to match Claude Code's
+# "Dark mode (colorblind-friendly)" theme: directories/links/exec/archives
+# use blue/teal/purple/orange instead of the default blue/cyan/green/red,
+# and the red-vs-green permission-bit backgrounds (setuid, sticky+writable,
+# other-writable) were swapped to red-vs-blue so they stay distinguishable.
+#
+# Configuration file for dircolors, a utility to help you set the
+# LS_COLORS environment variable used by GNU ls with the --color option.
+# The keywords COLOR, OPTIONS, and EIGHTBIT (honored by the
+# slackware version of dircolors) are recognized but ignored.
+# Global config options can be specified before TERM or COLORTERM entries
+# Below are TERM or COLORTERM entries, which can be glob patterns, which
+# restrict following config to systems with matching environment variables.
+COLORTERM ?*
+TERM Eterm
+TERM alacritty*
+TERM ansi
+TERM *color*
+TERM con[0-9]*x[0-9]*
+TERM cons25
+TERM console
+TERM cygwin
+TERM *direct*
+TERM dtterm
+TERM foot
+TERM gnome
+TERM hurd
+TERM jfbterm
+TERM konsole
+TERM kterm
+TERM linux
+TERM linux-c
+TERM mlterm
+TERM putty
+TERM rxvt*
+TERM screen*
+TERM st
+TERM terminator
+TERM tmux*
+TERM vt100
+TERM wezterm*
+TERM xterm*
+# Below are the color init strings for the basic file types.
+# One can use codes for 256 or more colors supported by modern terminals.
+# The default color codes use the capabilities of an 8 color terminal
+# with some additional attributes as per the following codes:
+# Attribute codes:
+# 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed
+# Text color codes:
+# 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
+# Background color codes:
+# 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+#NORMAL 00 # no color code at all
+#FILE 00 # regular file: use no color at all
+RESET 0
+DIR 01;38;5;117
+LINK 01;38;5;80
+MULTIHARDLINK 00
+FIFO 40;38;5;220
+SOCK 01;38;5;212
+DOOR 01;38;5;212
+BLK 40;38;5;220;01
+CHR 40;38;5;220;01
+ORPHAN 40;38;5;203;01
+MISSING 00
+SETUID 37;48;5;203
+SETGID 30;48;5;220
+CAPABILITY 00
+STICKY_OTHER_WRITABLE 30;48;5;69
+OTHER_WRITABLE 34;48;5;80
+STICKY 37;48;5;141
+EXEC 01;38;5;141
+# List any file extensions like '.gz' or '.tar' that you would like ls
+# to color below. Put the extension, a space, and the color init string.
+.tar 01;38;5;209
+.tgz 01;38;5;209
+.arc 01;38;5;209
+.arj 01;38;5;209
+.taz 01;38;5;209
+.lha 01;38;5;209
+.lz4 01;38;5;209
+.lzh 01;38;5;209
+.lzma 01;38;5;209
+.tlz 01;38;5;209
+.txz 01;38;5;209
+.tzo 01;38;5;209
+.t7z 01;38;5;209
+.zip 01;38;5;209
+.z 01;38;5;209
+.dz 01;38;5;209
+.gz 01;38;5;209
+.lrz 01;38;5;209
+.lz 01;38;5;209
+.lzo 01;38;5;209
+.xz 01;38;5;209
+.zst 01;38;5;209
+.tzst 01;38;5;209
+.bz2 01;38;5;209
+.bz 01;38;5;209
+.tbz 01;38;5;209
+.tbz2 01;38;5;209
+.tz 01;38;5;209
+.deb 01;38;5;209
+.rpm 01;38;5;209
+.jar 01;38;5;209
+.war 01;38;5;209
+.ear 01;38;5;209
+.sar 01;38;5;209
+.rar 01;38;5;209
+.alz 01;38;5;209
+.ace 01;38;5;209
+.zoo 01;38;5;209
+.cpio 01;38;5;209
+.7z 01;38;5;209
+.rz 01;38;5;209
+.cab 01;38;5;209
+.wim 01;38;5;209
+.swm 01;38;5;209
+.dwm 01;38;5;209
+.esd 01;38;5;209
+.avif 01;38;5;212
+.jpg 01;38;5;212
+.jpeg 01;38;5;212
+.mjpg 01;38;5;212
+.mjpeg 01;38;5;212
+.gif 01;38;5;212
+.bmp 01;38;5;212
+.pbm 01;38;5;212
+.pgm 01;38;5;212
+.ppm 01;38;5;212
+.tga 01;38;5;212
+.xbm 01;38;5;212
+.xpm 01;38;5;212
+.tif 01;38;5;212
+.tiff 01;38;5;212
+.png 01;38;5;212
+.svg 01;38;5;212
+.svgz 01;38;5;212
+.mng 01;38;5;212
+.pcx 01;38;5;212
+.mov 01;38;5;212
+.mpg 01;38;5;212
+.mpeg 01;38;5;212
+.m2v 01;38;5;212
+.mkv 01;38;5;212
+.webm 01;38;5;212
+.webp 01;38;5;212
+.ogm 01;38;5;212
+.mp4 01;38;5;212
+.m4v 01;38;5;212
+.mp4v 01;38;5;212
+.vob 01;38;5;212
+.qt 01;38;5;212
+.nuv 01;38;5;212
+.wmv 01;38;5;212
+.asf 01;38;5;212
+.rm 01;38;5;212
+.rmvb 01;38;5;212
+.flc 01;38;5;212
+.avi 01;38;5;212
+.fli 01;38;5;212
+.flv 01;38;5;212
+.gl 01;38;5;212
+.dl 01;38;5;212
+.xcf 01;38;5;212
+.xwd 01;38;5;212
+.yuv 01;38;5;212
+.cgm 01;38;5;212
+.emf 01;38;5;212
+.ogv 01;38;5;212
+.ogx 01;38;5;212
+.aac 00;38;5;66
+.au 00;38;5;66
+.flac 00;38;5;66
+.m4a 00;38;5;66
+.mid 00;38;5;66
+.midi 00;38;5;66
+.mka 00;38;5;66
+.mp3 00;38;5;66
+.mpc 00;38;5;66
+.ogg 00;38;5;66
+.ra 00;38;5;66
+.wav 00;38;5;66
+.oga 00;38;5;66
+.opus 00;38;5;66
+.spx 00;38;5;66
+.xspf 00;38;5;66
+*~ 00;90
+*# 00;90
+.bak 00;90
+.old 00;90
+.orig 00;90
+.part 00;90
+.rej 00;90
+.swp 00;90
+.tmp 00;90
+.dpkg-dist 00;90
+.dpkg-old 00;90
+.ucf-dist 00;90
+.ucf-new 00;90
+.ucf-old 00;90
+.rpmnew 00;90
+.rpmorig 00;90
+.rpmsave 00;90
+# Subsequent TERM or COLORTERM entries, can be used to add / override
+# config specific to those matching environment variables.
