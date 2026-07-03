@@ -97,7 +97,8 @@ boostRGB() {
 
 # --- Static palette computed once at source time ---
 
-_fp_host="${HOSTNAME:-$(hostname 2>/dev/null || echo "localhost")}"
+_fp_hostEsc='\h'
+_fp_host="${_fp_hostEsc@P}"
 _fp_hostRGB=$(getRGBValue "$_fp_host")
 _fp_lum=$(getLuminosity ${_fp_hostRGB//;/ })
 
