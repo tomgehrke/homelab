@@ -28,7 +28,8 @@ else
 	export LESS="$_lessColorFull"
 fi
 unset _lessColorFull
-export GREP_COLORS='mt=01;38;5;209:fn=38;5;117:ln=38;5;239:se=38;5;239'
+# mt=match: bold white on orange bg (highlighter). fn=filename: bold blue.
+export GREP_COLORS='mt=01;97;48;5;208:fn=01;38;5;75:ln=38;5;239:se=38;5;239'
 export HISTCONTROL="ignoredups" HISTSIZE=5000 HISTFILESIZE=5000
 export TZ='America/Chicago'
 export GIT_DEFAULT_BRANCH="main"
@@ -57,7 +58,9 @@ alias l='ls'
 alias ll='ls -hAlF'
 alias flushdns='resolvectl flush-caches'
 alias update-all='runElevated apt update && runElevated apt upgrade -y'
-grep --color=auto < /dev/null &>/dev/null && alias grep='grep --color=auto'
+# Use a valid invocation (blank line, empty pattern -> match) so the test only
+# fails when --color is unsupported; a bare `grep --color=auto` exits 2 (usage).
+echo | grep --color=auto '' &>/dev/null && alias grep='grep --color=auto'
 
 eval $(dircolors -b "$HOMELAB_ROOT/dotfiles/dircolors" 2>/dev/null || dircolors -b)
 
