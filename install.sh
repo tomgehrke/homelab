@@ -36,8 +36,9 @@ echo
 echo Checking prerequisites...
 checkPrerequisites
 
-echo Linking scripts...
+echo Creating symlinks...
 symlink "$PWD/scripts/bash" ~/scripts
+symlink "$PWD/configs/btop.conf" ~/.config/btop/btop.conf
 
 # Add sudoer if this is not root
 if [[ $EUID != 0 && -f ~/scripts/add-sudoer.sh ]]; then

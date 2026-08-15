@@ -33,9 +33,14 @@ for dotFile in "${dotFiles[@]}"; do
 	fi
 done
 
-echo "Unlinking scripts..."
+echo "Unlinking symlinks..."
 if [[ -L ~/scripts ]]; then
+    echo "- scripts"
     rm ~/scripts
+fi
+if [[ -L ~/.config/btop/btop.conf ]]; then
+    echo "- btop configuration"
+    rm ~/.config/btop/btop.conf
 fi
 
 # More cleanup of deprecated references
