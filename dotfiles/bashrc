@@ -21,9 +21,9 @@ export EDITOR="nano" PAGER="less"
 # prompts, search hits) -- content piped in (git diff, delta, grep) is
 # already ANSI-colored and renders fine via plain -R -- so on unsupported
 # hosts, drop -D entirely rather than risk another unsupported variant.
-_lessColorFull="-R --use-color -Dd+209 -Du+117 -DP16.44 -DS16.220 -DN239 -DE231.203 -DM141"
+_lessColorFull="-RN --use-color -Dd+209 -Du+117 -DP16.44 -DS16.220 -DN239 -DE231.203 -DM141"
 if printf '' | LESS="$_lessColorFull" less -F -Q 2>&1 | grep -q "Invalid color string"; then
-	export LESS="-R --use-color"
+	export LESS="-RN --use-color"
 else
 	export LESS="$_lessColorFull"
 fi
@@ -132,6 +132,10 @@ cd() {
                 fi
         done
         _last_checked_repo=""
+}
+
+hl() {
+        grep --color=always -e "$1" -e "^" "${@:2}"
 }
 
 getPackageManager() {
