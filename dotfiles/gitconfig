@@ -30,3 +30,5 @@
 	hunk-header-decoration-style = "141 box"
 	file-style = "220 bold"
 	file-decoration-style = "220 ul"
+[core]
+	autocrlf = false
