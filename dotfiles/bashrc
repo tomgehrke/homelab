@@ -248,7 +248,6 @@ fi
 installApps
 
 # Show system info
-printf '\n\e[1mSystem\e[0m\n'
 if command -v fastfetch >/dev/null 2>&1; then
         fastfetch
 fi
