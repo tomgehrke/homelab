@@ -157,9 +157,9 @@ initializeHomelab() {
         if [[ ! -f "$CONFIG_FILE" ]]; then
                 # Add default set of applications to new config
                 jq -n '{
-                        allApps: ["ncdu","bat","mc","git-delta","btop"],
-                        aptApps: ["screenfetch"],
-                        dnfApps: ["fastfetch"],
+                        allApps: ["ncdu","bat","mc","git-delta","btop","fastfetch"],
+                        aptApps: [],
+                        dnfApps: [],
                         excludeApps: [],
                         diskThreshold: 75
                 }' > "$CONFIG_FILE"
@@ -247,24 +247,16 @@ fi
 # Installs required applications
 installApps
 
-# Show system info (logo-less; -n for screenfetch, --logo none for fastfetch)
+# Show system info
 printf '\n\e[1mSystem\e[0m\n'
 if command -v fastfetch >/dev/null 2>&1; then
-        fastfetch --logo none
-elif command -v screenfetch >/dev/null 2>&1; then
-        screenfetch -n
+        fastfetch
 fi
 echo
 
 # Make sure our PATH is good for all the things
 if [[ -d "$HOME/.local/bin" ]] ; then
         PATH="$HOME/.local/bin:$PATH"
-fi
-
-# Check filesystem usage
-if [[ -f "$HOME/scripts/check-freespace.sh" ]]; then
-        diskThreshold=$(jq -r '.diskThreshold // 75' "$CONFIG_FILE")
-        $HOME/scripts/check-freespace.sh "$diskThreshold"
 fi
 
 # ===================================================================
